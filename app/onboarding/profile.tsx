@@ -6,7 +6,7 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -20,8 +20,20 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { theme } from "../../src/theme";
+import { GradientWash } from "../../src/components/GradientWash";
 import { useGoBack } from "../../src/hooks/useGoBack";
-import { BiologicalSex, saveHealthProfile } from "../../src/services/profile";
+import {
+  BiologicalSex,
+  HEIGHT_CM_MAX,
+  HEIGHT_CM_MIN,
+  WEIGHT_KG_MAX,
+  WEIGHT_KG_MIN,
+  getHealthProfile,
+  sanitizeHeightCm,
+  sanitizeWeightKg,
+  saveHealthProfile,
+} from "../../src/services/profile";
+import { KG_PER_LB } from "../../src/services/units";
 
 const sexOptions: { value: BiologicalSex; label: string; description: string }[] = [
   { value: "female", label: "Female", description: "Use female reference ranges" },
@@ -29,12 +41,88 @@ const sexOptions: { value: BiologicalSex; label: string; description: string }[]
   { value: "unspecified", label: "Prefer not to say", description: "Use sex-neutral ranges" },
 ];
 
+type HeightUnit = "cm" | "ft";
+type WeightUnit = "kg" | "lb";
+
+const CM_PER_IN = 2.54;
+
+function cmToFtIn(cm: number): { ft: string; inch: string } {
+  const totalIn = cm / CM_PER_IN;
+  let ft = Math.floor(totalIn / 12);
+  let inch = Math.round(totalIn - ft * 12);
+  if (inch === 12) {
+    ft += 1;
+    inch = 0;
+  }
+  return { ft: String(ft), inch: String(inch) };
+}
+
+function UnitSwitch<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: T[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <View style={styles.unitSwitch}>
+      {options.map((option) => {
+        const active = option === value;
+        return (
+          <TouchableOpacity
+            key={option}
+            style={[styles.unitOption, active && styles.unitOptionActive]}
+            onPress={() => onChange(option)}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.unitOptionText, active && styles.unitOptionTextActive]}>
+              {option}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
   const handleBack = useGoBack();
   const params = useLocalSearchParams<{ from?: string }>();
   const [ageText, setAgeText] = useState("");
   const [biologicalSex, setBiologicalSex] = useState<BiologicalSex>("unspecified");
+  const [heightUnit, setHeightUnit] = useState<HeightUnit>("cm");
+  const [heightCmText, setHeightCmText] = useState("");
+  const [heightFtText, setHeightFtText] = useState("");
+  const [heightInText, setHeightInText] = useState("");
+  const [weightUnit, setWeightUnitState] = useState<WeightUnit>("kg");
+  const [weightText, setWeightText] = useState("");
+
+  // Prefill when re-entering to edit (Settings / Biology entry points).
+  useEffect(() => {
+    let cancelled = false;
+    getHealthProfile()
+      .then((profile) => {
+        if (cancelled || !profile) return;
+        setAgeText(String(profile.chronologicalAge));
+        setBiologicalSex(profile.biologicalSex);
+        if (profile.heightCm != null) {
+          setHeightCmText(String(profile.heightCm));
+          const { ft, inch } = cmToFtIn(profile.heightCm);
+          setHeightFtText(ft);
+          setHeightInText(inch);
+        }
+        if (profile.weightKg != null) {
+          setWeightText(String(profile.weightKg));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const age = Number.parseInt(ageText, 10);
   const ageIsValid = Number.isFinite(age) && age >= 18 && age <= 100;
@@ -44,10 +132,68 @@ export default function ProfileScreen() {
     return "Your age is stored only on this device.";
   }, [ageText, ageIsValid]);
 
+  // Height in cm. null = left blank (optional), undefined = invalid entry.
+  const heightCm = useMemo((): number | null | undefined => {
+    if (heightUnit === "cm") {
+      if (!heightCmText.trim()) return null;
+      return sanitizeHeightCm(Number.parseFloat(heightCmText)) ?? undefined;
+    }
+    if (!heightFtText.trim() && !heightInText.trim()) return null;
+    const ft = Number.parseFloat(heightFtText || "0");
+    const inch = Number.parseFloat(heightInText || "0");
+    if (!Number.isFinite(ft) || !Number.isFinite(inch) || ft < 0 || inch < 0 || inch >= 12) {
+      return undefined;
+    }
+    return sanitizeHeightCm((ft * 12 + inch) * CM_PER_IN) ?? undefined;
+  }, [heightUnit, heightCmText, heightFtText, heightInText]);
+
+  const heightIsValid = heightCm !== undefined;
+
+  // Weight in kg. null = left blank (optional), undefined = invalid entry.
+  const weightKg = useMemo((): number | null | undefined => {
+    if (!weightText.trim()) return null;
+    const raw = Number.parseFloat(weightText);
+    if (!Number.isFinite(raw)) return undefined;
+    const kg = weightUnit === "lb" ? raw * KG_PER_LB : raw;
+    return sanitizeWeightKg(kg) ?? undefined;
+  }, [weightText, weightUnit]);
+
+  const weightIsValid = weightKg !== undefined;
+
+  const canContinue = ageIsValid && heightIsValid && weightIsValid;
+
+  const handleHeightUnitChange = (unit: HeightUnit) => {
+    if (unit === heightUnit) return;
+    // Carry the entered value across units so nothing is lost on toggle.
+    if (unit === "ft" && heightCm != null) {
+      const { ft, inch } = cmToFtIn(heightCm);
+      setHeightFtText(ft);
+      setHeightInText(inch);
+    } else if (unit === "cm" && heightCm != null) {
+      setHeightCmText(String(Math.round(heightCm * 10) / 10));
+    }
+    setHeightUnit(unit);
+  };
+
+  const handleWeightUnitChange = (unit: WeightUnit) => {
+    if (unit === weightUnit) return;
+    const raw = Number.parseFloat(weightText);
+    if (Number.isFinite(raw) && weightText.trim()) {
+      const converted = unit === "lb" ? raw / KG_PER_LB : raw * KG_PER_LB;
+      setWeightText(String(Math.round(converted * 10) / 10));
+    }
+    setWeightUnitState(unit);
+  };
+
   const handleContinue = async () => {
-    if (!ageIsValid) return;
-    await saveHealthProfile({ chronologicalAge: age, biologicalSex });
-    if (params.from === "biology") {
+    if (!canContinue) return;
+    await saveHealthProfile({
+      chronologicalAge: age,
+      biologicalSex,
+      heightCm: heightCm ?? null,
+      weightKg: weightKg ?? null,
+    });
+    if (params.from === "biology" || params.from === "settings") {
       handleBack();
     } else {
       // Tell ai-choice it is part of onboarding so Continue advances to the
@@ -62,6 +208,7 @@ export default function ProfileScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
+      <GradientWash color={theme.colors.info} />
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -78,7 +225,8 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.title}>A little about you</Text>
           <Text style={styles.subtitle}>
-            We use this to make your biological-age estimate more meaningful. It is a wellness index, not a medical diagnosis.
+            Personalizes your calorie targets and sharpens your biological-age
+            estimate — a wellness index, not a medical diagnosis.
           </Text>
         </View>
 
@@ -100,6 +248,93 @@ export default function ProfileScreen() {
           <Text style={[styles.helper, ageText.length > 0 && !ageIsValid && styles.helperInvalid]}>
             {ageMessage}
           </Text>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>Height</Text>
+            <UnitSwitch options={["cm", "ft"]} value={heightUnit} onChange={handleHeightUnitChange} />
+          </View>
+          <Text style={styles.sectionHint}>Optional · personalizes calorie targets and BMI.</Text>
+          {heightUnit === "cm" ? (
+            <View style={[styles.ageInputWrap, !heightIsValid && styles.inputInvalid]}>
+              <TextInput
+                value={heightCmText}
+                onChangeText={(text) =>
+                  setHeightCmText(text.replace(/[^0-9.]/g, "").slice(0, 5))
+                }
+                keyboardType="decimal-pad"
+                placeholder="Your height"
+                placeholderTextColor={theme.colors.muted}
+                style={styles.ageInput}
+                returnKeyType="done"
+              />
+              <Text style={styles.ageUnit}>cm</Text>
+            </View>
+          ) : (
+            <View style={styles.splitRow}>
+              <View style={[styles.ageInputWrap, styles.splitInput, !heightIsValid && styles.inputInvalid]}>
+                <TextInput
+                  value={heightFtText}
+                  onChangeText={(text) =>
+                    setHeightFtText(text.replace(/[^0-9]/g, "").slice(0, 1))
+                  }
+                  keyboardType="number-pad"
+                  placeholder="5"
+                  placeholderTextColor={theme.colors.muted}
+                  style={styles.ageInput}
+                  returnKeyType="done"
+                />
+                <Text style={styles.ageUnit}>ft</Text>
+              </View>
+              <View style={[styles.ageInputWrap, styles.splitInput, !heightIsValid && styles.inputInvalid]}>
+                <TextInput
+                  value={heightInText}
+                  onChangeText={(text) =>
+                    setHeightInText(text.replace(/[^0-9]/g, "").slice(0, 2))
+                  }
+                  keyboardType="number-pad"
+                  placeholder="9"
+                  placeholderTextColor={theme.colors.muted}
+                  style={styles.ageInput}
+                  returnKeyType="done"
+                />
+                <Text style={styles.ageUnit}>in</Text>
+              </View>
+            </View>
+          )}
+          {!heightIsValid && (
+            <Text style={[styles.helper, styles.helperInvalid]}>
+              Enter a height between {HEIGHT_CM_MIN} and {HEIGHT_CM_MAX} cm.
+            </Text>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>Weight</Text>
+            <UnitSwitch options={["kg", "lb"]} value={weightUnit} onChange={handleWeightUnitChange} />
+          </View>
+          <Text style={styles.sectionHint}>Optional · calorie and protein targets. Your tracker can update it.</Text>
+          <View style={[styles.ageInputWrap, !weightIsValid && styles.inputInvalid]}>
+            <TextInput
+              value={weightText}
+              onChangeText={(text) =>
+                setWeightText(text.replace(/[^0-9.]/g, "").slice(0, 5))
+              }
+              keyboardType="decimal-pad"
+              placeholder="Your weight"
+              placeholderTextColor={theme.colors.muted}
+              style={styles.ageInput}
+              returnKeyType="done"
+            />
+            <Text style={styles.ageUnit}>{weightUnit === "kg" ? "kg" : "lbs"}</Text>
+          </View>
+          {!weightIsValid && (
+            <Text style={[styles.helper, styles.helperInvalid]}>
+              Enter a weight between {WEIGHT_KG_MIN} and {WEIGHT_KG_MAX} kg.
+            </Text>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -142,9 +377,9 @@ export default function ProfileScreen() {
 
       <View style={styles.footer}>
         <TouchableOpacity
-          style={[styles.button, !ageIsValid && styles.buttonDisabled]}
+          style={[styles.button, !canContinue && styles.buttonDisabled]}
           onPress={handleContinue}
-          disabled={!ageIsValid}
+          disabled={!canContinue}
           activeOpacity={0.85}
         >
           <Text style={styles.buttonText}>Continue</Text>
@@ -213,6 +448,45 @@ const styles = StyleSheet.create({
     ...theme.typography.titleSm,
     color: theme.colors.ink,
     marginBottom: theme.spacing.xs,
+  },
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: theme.spacing.xs,
+  },
+  unitSwitch: {
+    flexDirection: "row",
+    backgroundColor: theme.colors.surfaceElevated,
+    borderRadius: theme.radii.pill,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  unitOption: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 5,
+    borderRadius: theme.radii.pill,
+  },
+  unitOptionActive: {
+    backgroundColor: theme.colors.card,
+    ...theme.shadows.cardSoft,
+  },
+  unitOptionText: {
+    ...theme.typography.caption,
+    color: theme.colors.muted,
+  },
+  unitOptionTextActive: {
+    color: theme.colors.ink,
+    fontFamily: "Nunito_700Bold",
+    fontWeight: "700",
+  },
+  splitRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+  },
+  splitInput: {
+    flex: 1,
   },
   sectionHint: {
     ...theme.typography.caption,

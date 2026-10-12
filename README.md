@@ -1,371 +1,199 @@
 <div align="center">
 
-<img src="assets/icon.png" alt="Myrri logo" width="112" height="112" style="border-radius: 24px;" />
+<img src="assets/icon.png" alt="Myrri app icon" width="88" height="88" />
 
-# 🧬 Myrri
+# Myrri
 
-### Your <span style="color:#E56F63">private</span> AI health coach — free forever, no subscription, no account, no data-selling.
+### Health should be private. And free.
 
-**Myrri turns your Apple Health / Google Health Connect data into a personal coach: a daily morning brief, WHOOP-style strain & readiness scores, a biological-age estimate, habit tracking, AI food logging with barcode scanning, and a chat coach that actually knows your body.**
+**Your body is not a business model.**
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6?logo=typescript&logoColor=white)](package.json)
-[![Expo SDK](https://img.shields.io/badge/Expo-SDK%2054-000020?logo=expo&logoColor=white)](app.json)
-[![Platform](https://img.shields.io/badge/Platform-iOS%20%7C%20Android-5c5c5c)](https://play.google.com/store/apps/details?id=com.myrri.app)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](#contributing)
+Sleep, recovery, food, habits, and an optional AI coach.<br />
+No Myrri account. No subscription. No ads. Open source.
 
-[![Get the beta on Android](https://img.shields.io/badge/Get%20the%20beta%20on%20Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://play.google.com/store/apps/details?id=com.myrri.app)
-[![Star on GitHub](https://img.shields.io/github/stars/Pranesh950/health-app?style=for-the-badge&logo=github&logoColor=white&color=gold)](https://github.com/Pranesh950/health-app)
+[![Join the Android beta](https://img.shields.io/badge/Join_the_Android_beta-3DDC84?style=for-the-badge&logo=android&logoColor=202126)](#get-myrri-on-android)
+[![Star Myrri](https://img.shields.io/github/stars/Pranesh950/Myrri-Health?style=for-the-badge&logo=github&label=Star%20Myrri&color=E56F63)](https://github.com/Pranesh950/Myrri-Health)
+[![License: GPL v3](https://img.shields.io/badge/Open_source-GPLv3-202126?style=for-the-badge)](LICENSE)
 
-**🍎 iOS (TestFlight) is in development — the Android beta is live today.**
+**Android closed beta · iOS public testing link not available yet**
 
-*Myrri is a wellness tracker, not a medical device — it doesn't diagnose, treat, or cure anything.*
+<img src="assets/brand/readme-hero.svg" alt="Myrri: Your health. Your phone. Your rules. Free, open source, local-first. Illustrated readiness, sleep, and food cards—not actual app screenshots." width="100%" />
+
+**Your health data belongs with you. Not behind a monthly paywall.**
+
+[Get the Android beta](#get-myrri-on-android) · [What it does](#what-you-can-do) · [Privacy, plainly](#privacy-plainly) · [Build it yourself](#build-it-yourself)
 
 </div>
 
-<!-- App preview mockup, drawn with the app's real palette (cream · ink · coral). -->
-<p align="center">
-<svg viewBox="0 0 340 660" width="300" height="583" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Myrri app preview showing readiness, strain and sleep scores">
-  <defs>
-    <linearGradient id="bezel" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#3A3C44"/>
-      <stop offset="100%" stop-color="#202126"/>
-    </linearGradient>
-    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#202126" flood-opacity="0.25"/>
-    </filter>
-  </defs>
-  <rect x="20" y="20" width="300" height="620" rx="44" fill="url(#bezel)" filter="url(#soft)"/>
-  <rect x="14" y="150" width="6" height="34" rx="3" fill="#202126"/>
-  <rect x="32" y="32" width="276" height="596" rx="34" fill="#F7F7F9"/>
-  <rect x="140" y="46" width="60" height="16" rx="8" fill="#202126"/>
-  <text x="52" y="64" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" fill="#202126">9:41</text>
-  <circle cx="278" cy="60" r="4" fill="#E56F63"/>
-  <rect x="264" y="56" width="10" height="8" rx="2" fill="#E7E8EC"/>
-  <text x="52" y="112" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="700" fill="#202126">Good morning</text>
-  <text x="52" y="134" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#9698A1">Tuesday, July 15 · 07:00</text>
-  <rect x="44" y="156" width="248" height="124" rx="18" fill="#FFFFFF" stroke="#E7E8EC" stroke-width="1"/>
-  <text x="60" y="184" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600" fill="#9698A1">READINESS</text>
-  <circle cx="104" cy="228" r="38" fill="none" stroke="#F0F1F4" stroke-width="9"/>
-  <circle cx="104" cy="228" r="38" fill="none" stroke="#E56F63" stroke-width="9" stroke-linecap="round" stroke-dasharray="214 239" transform="rotate(-90 104 228)"/>
-  <text x="104" y="235" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="26" font-weight="700" fill="#202126">87</text>
-  <text x="160" y="218" font-family="system-ui, -apple-system, sans-serif" font-size="17" font-weight="700" fill="#202126">Excellent</text>
-  <text x="160" y="240" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#9698A1">Recovery on track</text>
-  <rect x="44" y="292" width="248" height="92" rx="18" fill="#FFFFFF" stroke="#E7E8EC" stroke-width="1"/>
-  <text x="60" y="320" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600" fill="#9698A1">STRAIN</text>
-  <text x="60" y="350" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="700" fill="#202126">14.2</text>
-  <text x="278" y="350" text-anchor="end" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#9698A1">goal 12.0</text>
-  <rect x="60" y="362" width="216" height="8" rx="4" fill="#F0F1F4"/>
-  <rect x="60" y="362" width="168" height="8" rx="4" fill="#C96D63"/>
-  <rect x="44" y="396" width="248" height="92" rx="18" fill="#FFFFFF" stroke="#E7E8EC" stroke-width="1"/>
-  <text x="60" y="424" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600" fill="#9698A1">SLEEP</text>
-  <text x="60" y="454" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="700" fill="#202126">7h 42m</text>
-  <text x="278" y="454" text-anchor="end" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#9698A1">deep 1h 24m</text>
-  <rect x="60" y="466" width="216" height="8" rx="4" fill="#F0F1F4"/>
-  <rect x="60" y="466" width="188" height="8" rx="4" fill="#6B83A5"/>
-  <rect x="44" y="500" width="248" height="104" rx="18" fill="#202126"/>
-  <text x="60" y="526" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#F7F7F9">☀️ Morning brief</text>
-  <text x="60" y="550" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#A9ABB5">✓ 8,412 steps yesterday</text>
-  <text x="60" y="570" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#A9ABB5">✓ Protein goal hit</text>
-  <text x="60" y="590" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#E8C66A">→ Hydrate before 10am</text>
-  <rect x="130" y="606" width="80" height="5" rx="2.5" fill="#D9DAE0"/>
-</svg>
-</p>
+## Get Myrri on Android
 
-<div align="center">
-  <span style="display:inline-block; background: var(--color-canvas-subtle); border: 1px solid var(--color-border-default); border-radius: 999px; padding: 6px 16px; margin: 4px; font-size: 14px;">🔥 <b>300,000+</b> foods offline</span>
-  <span style="display:inline-block; background: var(--color-canvas-subtle); border: 1px solid var(--color-border-default); border-radius: 999px; padding: 6px 16px; margin: 4px; font-size: 14px;">📸 <b>300,000+</b> barcodes</span>
-  <span style="display:inline-block; background: var(--color-canvas-subtle); border: 1px solid var(--color-border-default); border-radius: 999px; padding: 6px 16px; margin: 4px; font-size: 14px;">✅ <b>40+</b> habits</span>
-  <span style="display:inline-block; background: var(--color-canvas-subtle); border: 1px solid var(--color-border-default); border-radius: 999px; padding: 6px 16px; margin: 4px; font-size: 14px;">📊 <b>21-day</b> baselines</span>
-  <span style="display:inline-block; background: var(--color-canvas-subtle); border: 1px solid var(--color-border-default); border-radius: 999px; padding: 6px 16px; margin: 4px; font-size: 14px;">💰 <b>$0</b> forever</span>
-</div>
+**Three links. One Google account. Follow them in order.**
 
-<br/>
+| 1 · Join the group | 2 · Become a tester | 3 · Install the app |
+| :--- | :--- | :--- |
+| [**Join Myrri testers →**](https://groups.google.com/g/myrri) | [**Open the beta opt-in →**](https://play.google.com/apps/testing/com.myrri.app) | [**Download on Google Play →**](https://play.google.com/store/apps/details?id=com.myrri.app) |
+| Sign in and choose **Join group**, or request membership if approval is required. | Once you're a group member, tap **Become a tester**. | Open the listing with the same account and tap **Install**. |
 
-<p align="center">
-<a href="#why-myrri-exists">Why</a> · <a href="#what-makes-myrri-different">Compare</a> · <a href="#features">Features</a> · <a href="#how-it-works">How it works</a> · <a href="#supported-wearables">Wearables</a> · <a href="#try-myrri-today">Try it</a> · <a href="#quickstart">Quickstart</a> · <a href="#privacy">Privacy</a> · <a href="#roadmap">Roadmap</a> · <a href="#contributing">Contributing</a>
-</p>
+> **Important:** use the **same Google account** for the group, the tester opt-in, and Google Play. Google requires an account for beta access; **Myrri itself does not require an account**.
 
----
+<details>
+<summary><strong>Can't join, see the app, or install? Start here.</strong></summary>
 
-## Why Myrri exists
+- **Group says “Content unavailable”?** Sign in to Google, check the selected account, and reopen [the group](https://groups.google.com/g/myrri). If it still fails, [email the maintainer](mailto:pranesh.shivaraj.k@gmail.com?subject=Myrri%20Android%20beta%20access) for help. Don't post your email or health data in a public issue.
+- **You requested membership?** Wait for approval before opening the tester opt-in link. A pending request is not membership.
+- **“App not available for this account”?** Check that you joined the group and accepted the beta using the account selected in your Play Store. Reopen the opt-in page, then the store listing.
+- **Still unavailable?** Closed-test access, supported devices, and country availability are controlled in Google Play. Send the maintainer the error text and your phone model; no health records needed.
+- **No wearable?** Choose the no-device/manual setup. Food and habit logging don't require one. Health-based scores need the relevant health data.
 
-Health apps often have a broken business model: many **sell or monetize your data**, lock advanced metrics behind **monthly subscription paywalls**, and push everything through **clouds you don't control**. Fitness wearables frequently hand you a Whoop/Ōura subscription to tell you what your sleep already told you for free.
+</details>
 
-So I built the opposite:
+**Want to help get Myrri out of closed testing?** Join, opt in, and try it in your normal routine. Google Play's production-access process can require at least **12 testers opted in continuously for 14 days**; eligibility and approval are determined by Google. Honest bug reports and real-world feedback matter more than perfect reviews.
 
-> **A real AI health coach that is free forever, keeps your data on your phone, needs no account, and works with the wearable you already own.**
+**On iPhone?** There is no public TestFlight link listed yet. Watch this repository's [releases](https://github.com/Pranesh950/Myrri-Health/releases) for availability. A GitHub star is appreciated, but it doesn't subscribe you to release notifications.
 
-Every core feature — readiness, strain, biological age, journaling, food logging, the morning brief — works **completely offline and without paying anything**. AI is optional, and when you use it you choose exactly how it runs.
+## Your health. Your phone. Your rules.
 
----
+You already generated the data. You should be able to understand it without another subscription.
 
-## What makes Myrri different
+Myrri brings your health signals, meals, and everyday habits together in a **free, local-first wellness app**. Connect Apple Health or Android Health Connect, or start with manual tracking. Choose on-device AI, your own cloud API key, or no AI at all.
 
-| | Myrri | Whoop / Ōura | MyFitnessPal / Noom |
-|---|---|---|---|
-| **Price** | ✅ Free — no subscription | Whoop ~$25–40 / mo billed monthly · Ōura ~$6 / mo³ | MFP ~$7–25 / mo · Noom ~$17–70 / mo³ |
-| **No account required** | ✅ | ❌ | ❌ |
-| **Phone-sensor tracking, no wearable needed** | ✅ Phone sensors + manual logs | ❌ Band / ring required | ❌ Manual entry only |
-| **Data stays on your device** | ✅ SQLite, local-first¹ | ❌ Cloud | ❌ Cloud |
-| **AI coach — on-device option included** | ✅ Optional on-device models² | ⚠️ Cloud AI, subscription | ⚠️ Cloud AI (Noom) / none (MFP) |
-| **Open source** | ✅ GPLv3 | ❌ | ❌ |
+| What you shouldn't have to trade | The Myrri approach |
+| :--- | :--- |
+| **Money just to access core features** | No Myrri subscription or feature paywall. Optional cloud AI may cost money through your provider. |
+| **Your privacy for a dashboard** | Core records and calculations stay on your device. Cloud AI is an explicit choice, not a requirement. |
+| **An email address to start tracking** | No Myrri signup. Open the app and get started. |
+| **A new wearable to participate** | Use compatible data from the wearable you own, or log manually. |
+| **Blind trust in a black box** | GPLv3 source code you can inspect, modify, and build yourself. |
 
-<sub>¹ Core health data and journal entries stay in on-device SQLite/AsyncStorage. Optional cloud AI (bring-your-own-key) sends only scrubbed chat context to the provider you choose — see the [Privacy Policy](PRIVACY_POLICY.md).</sub>
+**No ads. No selling your health data. No “start your free trial” countdown.**
 
-<sub>² On-device models (Llama, Gemini Nano, Apple) run with no network and no account; a bring-your-own-key cloud option is also available.</sub>
+## What you can do
 
-<sub>³ Subscription prices verified August 2026 from public listings and change frequently — re-check before publishing. Whoop membership ~$25–40/mo by tier (annual ~$199–399/yr); Ōura membership $5.99/mo (US). MFP Premium $19.99/mo or ~$6.67/mo billed annually (Premium+ higher); Noom $70/mo or ~$17/mo billed annually (Noom Med higher).</sub>
+| | |
+| :--- | :--- |
+| **☀️ Make sense of your morning**<br />Readiness, sleep, strain, and a locally generated morning brief help you review your day—not just collect more numbers. | **🍎 Spend less time logging food**<br />Search the bundled offline food database, scan supported barcodes, or describe a meal to the optional AI food coach. |
+| **📓 See the habits behind the numbers**<br />Track water, caffeine, mood, movement, and more. Review streaks and habit/readiness associations. Correlation is not causation. | **💬 Ask a coach with context**<br />The optional AI coach can use your health and journal context, help log meals, and work with your plan. Local AI depends on your phone. |
+| **📈 Compare with your own baseline**<br />Readiness uses a rolling 21-day HRV/resting-heart-rate/sleep baseline. Available data affects what scores you can see. | **🧬 Explore a wellness age estimate**<br />An estimated index from available health signals, with uncertainty. Not a clinical biological-age test or diagnosis. |
 
-<sub>WHOOP is a trademark of Whoop, Inc.; Ōura of Ōura Health Oy; MyFitnessPal of MyFitnessPal, Inc.; Noom of Noom, Inc. Myrri is an independent project and is not affiliated with, endorsed by, or sponsored by any of these companies. Product and pricing details are provided for comparison based on public information as of the date above.</sub>
+### Pick your AI. Or skip it.
 
----
+| Mode | Where it runs | What to know |
+| :--- | :--- | :--- |
+| **No AI** | Your phone | Core tracking, scores, food lookup, and morning briefs don't require an AI model or API key. |
+| **On-device AI** | Your phone | Supported Apple/Gemini Nano system models or a downloaded local model. Inference stays local; initial model setup may need internet, storage, and a capable device. |
+| **Bring your own key** | Your chosen cloud provider | Supports OpenAI, Anthropic, Gemini, and OpenRouter. Chat and relevant context leave your phone; provider pricing and privacy terms apply. Keys use OS secure storage. |
 
-## ✨ Features
+**The app is free. Optional third-party AI usage is not necessarily free.** Small local models can be slower and less capable than cloud models. You can use Myrri without either.
 
-<table style="border-collapse: separate; border-spacing: 12px;">
-  <tr>
-    <td width="50%" style="border: 1px solid var(--color-border-default); border-radius: 16px; padding: 20px 24px; vertical-align: top;">
-      <h4 style="margin: 0 0 8px;">🤖 AI Coach that knows you</h4>
-      A real chat coach with a <b>tool-calling loop</b> — it reads your journal and health data, logs meals, searches the food database, and updates your plan. Not a canned chatbot.
-      <ul>
-        <li>Runs on-device (Llama, Gemini Nano, Apple) — prompts <b>never leave the phone</b></li>
-        <li>Or bring your own key: OpenAI, Anthropic, Gemini, OpenRouter — stored encrypted</li>
-        <li>Or no AI at all — everything else works fully offline</li>
-        <li>Prompts are privacy-scrubbed before any cloud round-trip</li>
-      </ul>
-    </td>
-    <td width="50%" style="border: 1px solid var(--color-border-default); border-radius: 16px; padding: 20px 24px; vertical-align: top;">
-      <h4 style="margin: 0 0 8px;">🩺 Readiness & Strain</h4>
-      WHOOP-style scores built from <b>your own numbers</b>, not population guesses.
-      <ul>
-        <li><b>Readiness</b> from a rolling 21-day HRV / resting-HR / sleep baseline</li>
-        <li><b>Strain</b> tracked against a personal target, with a 30-day cumulative curve</li>
-        <li>📬 <b>Morning brief</b> — a daily notification recap of yesterday and today's plan, generated on-device with no AI and no cloud</li>
-      </ul>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" style="border: 1px solid var(--color-border-default); border-radius: 16px; padding: 20px 24px; vertical-align: top;">
-      <h4 style="margin: 0 0 8px;">🧬 Biological Age</h4>
-      A wellness-oriented age index from VO₂ max, HRV, resting HR, sleep, movement, body composition, and blood pressure.
-      <ul>
-        <li>Anchored on published ACSM/FRIEND cardiorespiratory reference tables</li>
-        <li>Confidence dampening so sparse data can't fake a dramatic result</li>
-        <li>Honest by design — labeled a heuristic index, with confidence shown in the UI</li>
-      </ul>
-    </td>
-    <td width="50%" style="border: 1px solid var(--color-border-default); border-radius: 16px; padding: 20px 24px; vertical-align: top;">
-      <h4 style="margin: 0 0 8px;">📓 Journal & Habits</h4>
-      Build streaks and spot what actually moves your readiness.
-      <ul>
-        <li><b>40+ habits</b> in one tap — sugar, alcohol, caffeine, mood, hydration, workouts, sunlight, meditation, gratitude, early bedtime…</li>
-        <li>Binary ✓/✗, counters, and measured inputs (weight, waist)</li>
-        <li>Weekly completion calendar, streaks, and <b>Insights</b> correlating habits with readiness</li>
-      </ul>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" style="border: 1px solid var(--color-border-default); border-radius: 16px; padding: 20px 24px; vertical-align: top;">
-      <h4 style="margin: 0 0 8px;">🍎 Food Logging</h4>
-      Logging meals should take seconds, not spreadsheets.
-      <ul>
-        <li><b>300,000+ foods</b> (USDA/OpenNutrition) bundled as SQLite — works offline</li>
-        <li>📷 <b>Barcode scanning</b> — 300,000+ EAN-13 / UPC codes from the camera</li>
-        <li>🤖 <b>AI food chat</b> — "two eggs, toast, coffee" → logged with macros</li>
-        <li>Smart servings, full calorie/protein/carbs/fat/fiber breakdown, daily nutrition goals</li>
-      </ul>
-    </td>
-    <td width="50%" style="border: 1px solid var(--color-border-default); border-radius: 16px; padding: 20px 24px; vertical-align: top;">
-      <h4 style="margin: 0 0 8px;">⌚ Your Wearable, Our Engine</h4>
-      Reads whatever your device syncs to Apple Health / Google Health Connect.
-      <ul>
-        <li>Steps, heart rate, <b>RHR, HRV, respiratory rate, SpO₂</b>, sleep, calories, VO₂ max, body fat, blood pressure, temperature</li>
-        <li>Guided setup for Apple Watch, Galaxy, Pixel, Garmin, Fitbit, Xiaomi, Amazfit, Huawei, Oura, WHOOP</li>
-        <li><b>No wearable? No problem</b> — full manual mode, phone sensors, everything offline</li>
-      </ul>
-    </td>
-  </tr>
-</table>
+### Works with the data you already have
 
----
+Myrri reads **Apple Health on iOS** and **Health Connect on Android**, with your permission. It doesn't connect directly to each wearable.
 
-## How it works
+Apple Watch, Galaxy Watch, Pixel Watch, Garmin, Fitbit, Oura, WHOOP, and other devices can supply data **where their companion apps support syncing to your platform's health store**. Support varies by vendor, region, OS, and metric; some setups need a bridge. Having a supported brand does not guarantee every metric is available.
 
-<table style="border-collapse: separate; border-spacing: 12px;">
-  <tr>
-    <td width="33%" align="center" style="border: 1px solid var(--color-border-default); border-radius: 16px; padding: 20px 16px;">
-      <div style="font-size: 28px;">📲</div>
-      <h4 style="margin: 8px 0;">Install & connect</h4>
-      Grant Health Connect / HealthKit access — or pick <b>No Device</b> and track manually.
-    </td>
-    <td width="33%" align="center" style="border: 1px solid var(--color-border-default); border-radius: 16px; padding: 20px 16px;">
-      <div style="font-size: 28px;">📊</div>
-      <h4 style="margin: 8px 0;">See your numbers</h4>
-      Readiness, strain, and biological age computed <b>on-device</b> from your own baselines.
-    </td>
-    <td width="33%" align="center" style="border: 1px solid var(--color-border-default); border-radius: 16px; padding: 20px 16px;">
-      <div style="font-size: 28px;">💬</div>
-      <h4 style="margin: 8px 0;">Chat with Coach</h4>
-      Log meals, plan your day, ask anything. On-device AI, your own key, or none.
-    </td>
-  </tr>
-</table>
+No wearable? Start with manual meals, habits, and supported manual metrics. Readiness and other health-based scores still need their underlying data.
 
----
+## Privacy, plainly
 
-## Supported Wearables
+**Private by default is a product decision, not a badge.**
 
-Myrri doesn't talk to your wearable directly — it reads the data your wearable's companion app writes to **Apple Health** (iOS) or **Google Health Connect** (Android). If your device can sync to one of those, it works with Myrri. The following brands have a guided in-app setup flow:
+- **No Myrri account, backend, ads, or analytics SDKs.**
+- Core health records, journals, meals, and settings use **on-device storage**.
+- Health permissions are your choice. Revoke them in Apple Health or Health Connect.
+- **On-device AI inference stays on-device.** Model downloads and app-store services still need network access.
+- **Cloud AI is optional.** When enabled, your chat and relevant context go directly to your selected provider. Identifier scrubbing is best-effort—not a guarantee of anonymity, and not removal of all sensitive health information.
+- API keys are kept in **OS secure storage**, not a Myrri server. Your provider's billing and retention policies still apply.
 
-| Wearable | Syncs via | Platform |
-|---|---|---|
-| **Apple Watch** | Apple Health | iOS |
-| **Samsung Galaxy Watch** | Samsung Health → Health Connect | Android |
-| **Pixel Watch** | Google Fit → Health Connect | Android |
-| **Garmin** | Garmin Connect → Health Connect / Apple Health | Android · iOS |
-| **Fitbit** | Fitbit app → Health Connect / Apple Health | Android · iOS |
-| **Xiaomi (Mi Band & more)** | Mi Fitness → Health Connect / Apple Health | Android · iOS |
-| **Amazfit** | Zepp → Health Connect / Apple Health | Android · iOS |
-| **Huawei** | HUAWEI Health → Health Connect / Apple Health | Android · iOS |
-| **Oura Ring** | Oura → Health Connect / Apple Health | Android · iOS |
-| **WHOOP** | WHOOP → Health Connect / Apple Health | Android · iOS |
+Read the [full privacy policy](PRIVACY_POLICY.md) and inspect the [source](src/services). Keep private health information out of public bug reports and the tester group.
 
-**Also recognized:** data synced from **Honor**, **Polar**, and **Withings** devices is detected and attributed correctly when it flows through Health Connect / Apple Health, even though those brands don't have a dedicated onboarding walkthrough yet.
+## Help make private health the default
 
-> ⚠️ Data availability varies by device and by what your vendor writes to the health store. Myrri shows whatever your companion app syncs; trend lines are more meaningful than single readings.
+You don't need to code to help.
 
-<sub>Apple, Apple Watch, and Apple Health are trademarks of Apple Inc. Samsung is a trademark of Samsung Electronics Co., Ltd. Google, Pixel, Google Fit, and Health Connect are trademarks of Google LLC. Garmin is a trademark of Garmin Ltd. Fitbit is a trademark of Google LLC. Xiaomi and Mi Fitness are trademarks of Xiaomi Inc. Amazfit and Zepp are trademarks of Zepp Health. Huawei and HUAWEI Health are trademarks of Huawei Technologies Co., Ltd. Oura is a trademark of Ōura Health Oy. WHOOP is a trademark of Whoop, Inc. Honor is a trademark of Honor Device Co., Ltd. Polar is a trademark of Polar Electro Oy. Withings is a trademark of Withings SAS. Myrri is independent and not affiliated with, endorsed by, or sponsored by any of these companies.</sub>
+1. **Try the [Android beta](#get-myrri-on-android).** Tell us what broke, what confused you, and what actually helped.
+2. **[Star the repository](https://github.com/Pranesh950/Myrri-Health).** Help other people discover an open-source alternative.
+3. **Send it to one friend** who cares about privacy, tracks their sleep, or is tired of subscription-only health tools.
 
-<!-- 📸 Screenshots gallery — drop real app captures here; they convert better than any copy. -->
+**A message you can copy:**
 
----
+> Health should be private and free. Myrri is an open-source health app for sleep, recovery, food, and habits—with optional on-device AI, no Myrri account, and no subscription. Android beta signup: https://github.com/Pranesh950/Myrri-Health#get-myrri-on-android
 
-## 📲 Try Myrri today
+[![Share on X](https://img.shields.io/badge/Share_on_X-202126?style=for-the-badge&logo=x&logoColor=white)](https://twitter.com/intent/tweet?text=Health%20should%20be%20private%20and%20free.%20Myrri%20is%20an%20open-source%20health%20app%20with%20no%20subscription%20and%20optional%20on-device%20AI.%20Try%20the%20Android%20beta%3A&url=https%3A%2F%2Fgithub.com%2FPranesh950%2FMyrri-Health%23get-myrri-on-android)
+[![Share on WhatsApp](https://img.shields.io/badge/Send_to_a_friend-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://wa.me/?text=Health%20should%20be%20private%20and%20free.%20Try%20Myrri%2C%20an%20open-source%20health%20app%20with%20no%20subscription%20and%20optional%20on-device%20AI%3A%20https%3A%2F%2Fgithub.com%2FPranesh950%2FMyrri-Health%23get-myrri-on-android)
 
-Myrri is in **closed beta** on Google Play — free, no subscription, no account to sign up for. Getting in takes two steps:
+**Please share the signup section, not just the Play Store listing.** Closed-beta users need group membership and the tester opt-in before they can install.
 
-1. **Join the tester group** — request access to the [Myrri Google Group](https://groups.google.com/u/3/g/myrri). Anyone not on the list is locked out of the beta.
-2. **Accept the invite & install** — open the beta with the **same Google account**:
-   - **From Android:** open [Myrri on Google Play](https://play.google.com/store/apps/details?id=com.myrri.app) → tap **Become a tester**.
-   - **From the web:** open [the opt-in page](https://play.google.com/apps/testing/com.myrri.app) → sign in and tap **Become a tester**.
+## Build it yourself
 
-[![Get the beta on Google Play](https://img.shields.io/badge/Get%20the%20beta-Google%20Play-3DDC84?style=for-the-badge&logo=googleplay&logoColor=white)](https://play.google.com/store/apps/details?id=com.myrri.app)
-[![Star on GitHub](https://img.shields.io/github/stars/Pranesh950/health-app?style=social)](https://github.com/Pranesh950/health-app)
+**Expo SDK 54 · React Native 0.81 · TypeScript · Expo Router · SQLite · HealthKit / Health Connect · AI SDK · llama.rn**
 
-> 💡 Use the **same Google account** for the group, the opt-in link, and the Play Store install. When the app asks, grant **Health Connect** permission to see your readiness, strain, and sleep scores.
-
-> ⚠️ **Testers needed:** Play requires **12 opted-in testers for 14 consecutive days** before Myrri can apply for production. Your beta participation is what makes the public release possible — stick around!
-
-**🍎 Apple users:** iOS is in development — [star the repo](https://github.com/Pranesh950/health-app) to hear when TestFlight opens.
-
----
-
-## 🧱 How it's built
-
-**Stack:** Expo SDK 54 · React Native 0.81 · TypeScript · expo-router · expo-sqlite · react-native-svg · llama.rn · expo-camera · expo-notifications · expo-secure-store · Health Connect (expo-health-connect) · HealthKit (react-native-health)
-
-- **Local-first architecture** — AsyncStorage + SQLite on device; no backend, no server, no telemetry.
-- **Provider-agnostic LLM layer** (`src/services/localLLM.ts`) — one chat API, four interchangeable providers, each with `isAvailable()/init()/chat()`.
-- **Deterministic fallbacks everywhere** — the coach plan, readiness, biological age, and morning brief all have no-AI code paths so the core app never depends on a model or network.
-- **Pluggable health services** — `HealthService` abstracts Health Connect / HealthKit behind one API.
-
-```
-app/                  # expo-router screens (tabs, onboarding, chat, food, details)
-src/services/         # health, readiness, biology, journal, food, coach plan, LLM layer
-src/services/providers/ # llama · gemini-nano · apple-builtin · byok
-src/components/       # charts (SVG), gauges, chat bubbles, habit rows
-modules/              # native modules (Gemini Nano, Apple LLM)
-scripts/              # OpenNutrition database build pipeline
-```
-
----
-
-## 🚀 Quickstart
-
-> **Prereqs:** Node 20+, an Expo dev-client setup, and (for native features) Xcode / Android Studio.
+Prerequisites: Node **20.19+**, npm, and Android Studio or Xcode for local native builds. EAS builds require your own Expo project and signing credentials. This is a **native app**; Expo Go cannot load its health and AI native modules.
 
 ```bash
-# 1. Clone & install
-git clone https://github.com/Pranesh950/health-app.git && cd health-app
+git clone https://github.com/Pranesh950/Myrri-Health.git
+cd Myrri-Health
 npm install
 
-# 2. Run with the dev client (Health Connect / HealthKit need native modules)
-npx expo start --tunnel
+# Typecheck
+npx tsc --noEmit
 
-# 3. Or build a native dev client
-npx expo prebuild --clean
-eas build --profile development --platform android   # then install the APK
+# Build and run a native development app
+npx expo run:android
+# On macOS with Xcode:
+npx expo run:ios
 ```
 
-> 🎯 **Native-only app** — install the dev-client build to see Health Connect / HealthKit data on your own phone.
+Already installed a matching development build? Start Metro with `npx expo start --dev-client`.
 
-> 🎯 **Heads-up for reviewers:** the health screens light up once you grant Health Connect / HealthKit permission — the app works fine without it.
+```text
+app/                    Screens, onboarding, chat, and detail views
+src/services/           Health, scoring, journal, food, and coaching
+src/services/ai/        AI agents, models, and tools
+src/services/providers/ On-device engines and cloud-key configuration
+src/components/         Charts, gauges, chat, and shared UI
+modules/                Native integrations
+plugins/                Expo native configuration
+scripts/                Nutrition database and asset tooling
+```
 
----
+Nutrition data attribution: [OpenNutrition](src/data/OPENNUTRITION_ATTRIBUTION.md).
 
-## 🔒 Privacy
+## Contribute
 
-- **No account. No signup. No servers. No analytics. No ads.**
-- All health data, journal entries, meals, and plans live in **local SQLite/AsyncStorage** on your device.
-- Cloud AI is **optional** and clearly labeled; prompts are scrubbed before leaving the phone, and a **fully on-device AI** mode exists.
-- Bring-your-own-key is encrypted at rest in secure storage and paid **directly to your provider** — the app never sees or monetizes it.
+[Report a bug or suggest a feature](https://github.com/Pranesh950/Myrri-Health/issues) · [Browse the source](https://github.com/Pranesh950/Myrri-Health) · [Read the license](LICENSE)
 
----
+Code, design, documentation, translations, accessibility improvements, and nutrition-data fixes are welcome. For a bug report, include your phone model, OS version, app version, and steps to reproduce. **Remove health data, API keys, and personal details from screenshots and logs.**
 
-## 🗺️ Roadmap
+### What's next
 
-- [ ] Health Connect **write** support (auto-log workouts & biometrics)
-- [ ] Push **weekly insight digest** (habits → readiness correlations)
-- [ ] More on-device models (Phi, Qwen) + model switching UI
-- [ ] App Store + Play Store production releases (TestFlight / closed → open beta)
-- [ ] i18n (first: Spanish, German, Japanese)
+- Public Android and iOS availability.
+- More device testing and on-device AI improvements.
+- More languages and accessibility polish.
 
-*Want something on the roadmap? [Open an issue](https://github.com/Pranesh950/health-app/issues) — or better, a PR.*
+Have a different priority? [Open an issue](https://github.com/Pranesh950/Myrri-Health/issues).
 
----
+## A few honest limits
 
-## 🤝 Contributing
+- Myrri is a **wellness app, not a medical device**. Scores and AI responses are informational and can be wrong. They are not medical advice or a substitute for professional care.
+- Wearable data quality and sync support vary. Missing inputs mean missing or less confident insights.
+- The offline food database and barcode coverage aren't exhaustive. Check portions and nutrition estimates.
+- On-device AI availability, speed, and memory requirements vary by phone. Core tracking works without it.
+- The banner above is an **illustration**, not an actual app screenshot. This is beta software; expect rough edges.
 
-Myrri is **free software** under the [GNU General Public License v3](LICENSE). You're welcome to read the code, learn from it, fork it, and build on it under the terms of that license.
+## License
 
-- **Report a bug or request a feature:** [GitHub Issues](https://github.com/Pranesh950/health-app/issues)
-- **Ideas & feedback:** open a [GitHub Discussion](https://github.com/Pranesh950/health-app/discussions) or open an issue above
-
-Contributions — code, design, docs, translations, and nutrition-data fixes — all welcome. Open a PR and we'll review it.
-
-<p align="center">
-<img src="https://api.star-history.com/svg?repos=Pranesh950/health-app&type=Date" alt="Myrri star history" width="560"/>
-</p>
-
----
-
-## ⚠️ Honest caveats
-
-- **Biological age** is a wellness heuristic, not a clinical diagnosis — it's clearly labeled in-app.
-- **On-device AI** needs a recent high-end phone and a few hundred MB of free storage; it's the "most private" but slowest option.
-- **Barcode coverage** (~300k bundled codes) won't have every product — unknown barcodes fall back to manual/AI search.
-- Health metrics vary by device; trend lines are more meaningful than single readings.
-- This is not medical advice. Myrri is a wellness tracker, not a doctor.
-
----
-
-## 📄 License
-
-Myrri is free software: you can redistribute it and/or modify it under the terms of the **GNU General Public License**, version 3 (or, at your option, any later version), as published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful, but **WITHOUT ANY WARRANTY**; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the [GNU General Public License](LICENSE) for details. You should have received a copy of the GNU General Public License along with this program; if not, see <https://www.gnu.org/licenses/>.
-
-Every source file in `app/` and `src/` carries the GPLv3 notice in its header.
+[GNU GPL v3](LICENSE), or any later version, under the terms in the license. You can inspect, modify, and redistribute the software under those terms. Provided **without warranty**. Third-party names belong to their respective owners; Myrri is not affiliated with the wearable or AI companies mentioned here.
 
 ---
 
 <div align="center">
 
-**Myrri is free forever.** If you like it, ⭐ [the repo](https://github.com/Pranesh950/health-app) and tell a friend — every star helps more people find a health app that doesn't treat them as the product.
+### Better health tools. Fewer strings attached.
 
-[![Star on GitHub](https://img.shields.io/github/stars/Pranesh950/health-app?style=for-the-badge&logo=github&logoColor=white&color=gold)](https://github.com/Pranesh950/health-app)
+**If that sounds like the future you want, help build it.**
 
-<sub>Made with ❤️ and an unhealthy amount of HRV data.</sub>
+[Join the Android beta](#get-myrri-on-android) · [Star Myrri](https://github.com/Pranesh950/Myrri-Health) · [Share with a friend](#help-make-private-health-the-default)
+
+<sub>Built by Pranesh Shivaraj. For people, not data brokers.</sub>
 
 </div>

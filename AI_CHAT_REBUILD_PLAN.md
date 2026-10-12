@@ -260,8 +260,6 @@ reuse the existing `ChatBubble`; replace `streamingText` plumbing with streamed 
 `createChatSession`, the four provider files, and both native modules. Prune the system
 prompts to tone/rules only.
 
-**Phase 4 — retrieval upgrade (2–4 days, optional).** §7.
-
 **Phase 5 — tests (1–2 days).** Golden-prompt suite per agent asserting *tool selection*
 (the real failure mode), plus unit tests for the handlers (still pure functions).
 
@@ -294,16 +292,9 @@ harness doc). Two tiers:
 3. Add `sqlite-vec`-style retrieval only if user-authored text grows (journal notes are the
    likely trigger).
 
-**Tier 2 (real semantic retrieval, when justified):**
-- Embeddings are now available **on-device in the same packages**: `apple.textEmbeddingModel()`
-  (NLContextualEmbedding, 512-dim) on iOS, `llama.textEmbeddingModel()` on Android, and
-  `embed()` from AI SDK for cloud parity.
-- Store vectors in SQLite (`op-sqlite` + sqlite-vec, as `react-native-rag` does) or brute-force
-  cosine over a few hundred rows — for a personal corpus, brute force is fine.
-- `llama.rn` also exposes **`context.rerank(query, documents)`** — use it to rerank FTS5 hits
-  instead of building a vector pipeline at all. That's usually the 80/20 here.
-- Only if we want a batteries-included pipeline: `react-native-rag` (op-sqlite VectorStore +
-  ExecuTorch embeddings). Heavier native surface; adopt only if Tier 1 proves insufficient.
+**Tier 2 (real semantic retrieval) — cut from this migration.** Our corpus is a
+personal health log; FTS5 + the snapshot tool covers it. Revisit only if users ask
+for "find the entries where…" across months of notes.
 
 ---
 
@@ -314,10 +305,10 @@ harness doc). Two tiers:
 | **A. AI SDK v6 + react-native-ai** (recommended) | ✅ | Purpose-built for exactly our situation (RN + on-device + cloud BYOK), maintained, typed, streaming, approvals, and it deletes the most code |
 | **B. Keep the hand-rolled loop, fix it properly** | 🟡 viable fallback | No new deps and no version risk; but we'd re-implement streaming, schema validation, approvals, and loop control — i.e. rebuild AI SDK ourselves. Reasonable if we want zero external surface, or as an interim step: adopt *just* native tool calls + GBNF + streaming (`ToolLoopAgent` optional) |
 | **C. Server-side agent framework** (Mastra, VoltAgent, LangGraph.js, OpenAI Agents SDK, Google ADK) | ❌ | They target Node/server runtimes; adopting one means adding a backend, which breaks the offline/no-account design and puts health data (or a proxy for it) on a server. Their strengths (multi-agent graphs, durable execution, tracing) are irrelevant to two single-agent mobile chats |
-| **D. `react-native-rag` + ExecuTorch** | 🟡 later | Good, but it's a retrieval library, not a harness — it doesn't fix tool calling, streaming, or approvals. Consider for Tier-2 RAG only |
-| **E. MLC / ExecuTorch as the local runtime** | 🟡 optional | `@react-native-ai/mlc` is a drop-in *provider* if GGUF quality/speed disappoints; ExecuTorch is the runtime behind react-native-rag. Neither is needed to fix the harness |
-| **G. Upgrade llama.rn in place, skip RN-AI** | 🟡 partially viable | Our installed `llama.rn@0.12.6` already exposes `tools`/`tool_choice`/`json_schema`/`grammar` (§1.1), so the local tier can get native tool calls and constrained decoding with **no new dependency**. What we'd give up: one unified loop/provider interface, and the built-in Apple/Nano tiers. Best used as the *fallback* if RN-AI adoption stalls |
-| **F. MCP** | 🟡 interesting | AI SDK 6 has full MCP support. Our tools are local and private — exposing them over MCP adds surface for no benefit today, but it's the natural path if Myrri ever connects to external data sources (labs, CGMs, smart scales) |
+| **D. `react-native-rag` + ExecuTorch** | ❌ cut | A retrieval library, not a harness — solves a problem we don't have yet. Revisit only if note search becomes a real complaint |
+| **E. MLC / ExecuTorch as the local runtime** | ❌ cut | Extra native surface for no current benefit; llama.rn is already working |
+| **G. Upgrade llama.rn in place, skip RN-AI** | 🟡 fallback only | In our back pocket if `@react-native-ai/*` breaks; not a parallel plan |
+| **F. MCP** | ❌ cut | Our tools are local; MCP adds attack surface and complexity for zero user value today |
 
 ---
 

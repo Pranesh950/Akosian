@@ -49,7 +49,16 @@ export interface WorkoutSession {
   durationMin: number;
   calories: number | null;
   distance: number | null; // meters
+  /** Average bpm across the session, or null when the wearable recorded no
+   *  heart-rate samples inside the session window. */
   avgHeartRate: number | null;
+  /** Highest bpm recorded during the session (null when no samples). */
+  maxHeartRate: number | null;
+  /** Lowest bpm recorded during the session (null when no samples). */
+  minHeartRate: number | null;
+  /** Evenly-timed bpm curve across the session (bucket-averaged samples), or
+   *  null when no heart-rate samples overlap the session window. */
+  heartRateCurve: number[] | null;
   exerciseType: number | null;
 }
 
@@ -601,6 +610,190 @@ async function hcAggregateByDay(
   }
 }
 
+// ── Workout heart-rate curves ───────────────────────────────────────────────
+// Wearables record heart rate throughout a workout and DO share those samples
+// through Health Connect / HealthKit — only the session record itself is
+// summary-only (no HR fields). Reading the raw samples that overlap each
+// session window is exactly how other apps draw an HR curve for the same
+// workout, so this app reads them the same way instead of reporting
+// "not available".
+
+/** Evenly-timed points in a workout heart-rate curve. Kept at or below the
+ *  InteractiveAreaChart 150-point render cap so scrub labels stay aligned
+ *  with the plotted points. */
+const WORKOUT_HR_CURVE_POINTS = 120;
+
+interface HrSample {
+  t: number; // epoch ms
+  bpm: number;
+}
+
+type HealthModuleCtx = { type: "healthkit" | "healthconnect"; module: any };
+
+/** Reads every heart-rate sample overlapping [start, end], sorted by time. */
+async function readHrSamplesInRange(
+  ctx: HealthModuleCtx,
+  start: Date,
+  end: Date
+): Promise<HrSample[]> {
+  const out: HrSample[] = [];
+  if (ctx.type === "healthconnect") {
+    const records = await hcRead(ctx.module, "HeartRate", start, end);
+    for (const record of records) {
+      for (const s of record.samples ?? []) {
+        const t = new Date(s?.time).getTime();
+        const bpm = s?.beatsPerMinute;
+        if (Number.isFinite(t) && Number.isFinite(bpm)) out.push({ t, bpm });
+      }
+    }
+  } else if (ctx.type === "healthkit") {
+    const samples = await hkGet(ctx.module, "getHeartRateSamples", {
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+    });
+    for (const s of samples) {
+      const t = new Date(s?.startDate).getTime();
+      const bpm = s?.value;
+      if (Number.isFinite(t) && Number.isFinite(bpm)) out.push({ t, bpm });
+    }
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+
+/**
+ * Builds summary stats + an evenly-timed heart-rate curve for one session
+ * from a shared, pre-sorted sample list. Samples are averaged into
+ * evenly-timed buckets across the session window; gaps between recorded
+ * stretches are linearly interpolated and empty edges extend the nearest
+ * recorded value, so a wearable that samples at its own cadence still yields
+ * a smooth curve correctly aligned to the session timeline. Returns null when
+ * no sample overlaps the session window.
+ */
+function buildWorkoutHrSummary(
+  samples: HrSample[],
+  startMs: number,
+  endMs: number
+): { avg: number; max: number; min: number; curve: number[] } | null {
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+    return null;
+  }
+  const windowSamples = samples.filter((s) => s.t >= startMs && s.t <= endMs);
+  if (!windowSamples.length) return null;
+
+  // Never plot more points than there are samples, nor more than one point
+  // per minute of workout — an hour-long session then costs at most 120
+  // points and a sparse recording keeps its real granularity.
+  const pointCount = Math.max(
+    2,
+    Math.min(
+      WORKOUT_HR_CURVE_POINTS,
+      windowSamples.length,
+      Math.round((endMs - startMs) / 60000)
+    )
+  );
+  const bucketMs = (endMs - startMs) / pointCount;
+  const sums = new Array<number>(pointCount).fill(0);
+  const counts = new Array<number>(pointCount).fill(0);
+  let totalBpm = 0;
+  let maxBpm = -Infinity;
+  let minBpm = Infinity;
+  for (const s of windowSamples) {
+    const idx = Math.min(
+      pointCount - 1,
+      Math.max(0, Math.floor((s.t - startMs) / bucketMs))
+    );
+    sums[idx] += s.bpm;
+    counts[idx] += 1;
+    totalBpm += s.bpm;
+    if (s.bpm > maxBpm) maxBpm = s.bpm;
+    if (s.bpm < minBpm) minBpm = s.bpm;
+  }
+
+  // -1 marks a bucket with no direct samples (bpm is always ≥ 0).
+  const curve: number[] = sums.map((sum, i) =>
+    counts[i] > 0 ? sum / counts[i] : -1
+  );
+  for (let i = 0; i < curve.length; i += 1) {
+    if (curve[i] >= 0) continue;
+    let prev = -1;
+    let next = -1;
+    for (let j = i - 1; j >= 0; j -= 1) {
+      if (curve[j] >= 0) {
+        prev = j;
+        break;
+      }
+    }
+    for (let j = i + 1; j < curve.length; j += 1) {
+      if (curve[j] >= 0) {
+        next = j;
+        break;
+      }
+    }
+    if (prev >= 0 && next >= 0) {
+      const weight = (i - prev) / (next - prev);
+      curve[i] = curve[prev] + (curve[next] - curve[prev]) * weight;
+    } else if (prev >= 0) {
+      curve[i] = curve[prev];
+    } else if (next >= 0) {
+      curve[i] = curve[next];
+    } else {
+      curve[i] = 0; // Unreachable — at least one bucket holds a sample.
+    }
+  }
+
+  return {
+    avg: Math.round(totalBpm / windowSamples.length),
+    max: Math.round(maxBpm),
+    min: Math.round(minBpm),
+    curve: curve.map((v) => Math.round(v)),
+  };
+}
+
+/**
+ * Attaches avg/max/min heart rate and the heart-rate curve to every session
+ * from ONE read of raw samples spanning the sessions' range, instead of one
+ * read per workout.
+ */
+async function attachWorkoutHeartRates(
+  ctx: HealthModuleCtx,
+  workouts: WorkoutSession[],
+  rangeStart: Date,
+  rangeEnd: Date
+): Promise<void> {
+  if (!workouts.length) return;
+  const starts = workouts
+    .map((w) => w.startTime.getTime())
+    .filter(Number.isFinite);
+  const ends = workouts.map((w) => w.endTime.getTime()).filter(Number.isFinite);
+  if (!starts.length || !ends.length) return;
+  // Clamp the read to the actual span of the returned sessions.
+  const startMs = Math.max(rangeStart.getTime(), Math.min(...starts));
+  const endMs = Math.min(rangeEnd.getTime(), Math.max(...ends));
+  if (!(endMs > startMs)) return;
+
+  let samples: HrSample[];
+  try {
+    samples = await readHrSamplesInRange(ctx, new Date(startMs), new Date(endMs));
+  } catch (err) {
+    console.warn("[HealthService] Workout heart-rate read failed:", err);
+    return;
+  }
+  if (!samples.length) return;
+
+  for (const w of workouts) {
+    const summary = buildWorkoutHrSummary(
+      samples,
+      w.startTime.getTime(),
+      w.endTime.getTime()
+    );
+    if (!summary) continue;
+    w.avgHeartRate = summary.avg;
+    w.maxHeartRate = summary.max;
+    w.minHeartRate = summary.min;
+    w.heartRateCurve = summary.curve;
+  }
+}
+
 function exerciseMeta(type: number | null | undefined) {
   if (type == null) return EXERCISE_TYPE_META[0];
   return EXERCISE_TYPE_META[type] ?? EXERCISE_TYPE_META[0];
@@ -936,7 +1129,41 @@ export const HealthService = {
           };
 
           await requestBatch(HEALTH_CONNECT_CORE_READ_TYPES);
-          await requestOptionalIndividually(HEALTH_CONNECT_OPTIONAL_READ_TYPES);
+          // Request every missing optional type in ONE consent screen. Asking
+          // for them one at a time opened a separate Health Connect dialog per
+          // record type, and since several optional records share the same
+          // Android permission group (e.g. "Vitals"), the user saw what looked
+          // like the identical popup reappearing after every OK — on some
+          // devices 10+ times in a row. If a provider rejects the batch (an
+          // unsupported record type can fail the whole request on older Health
+          // Connect builds), fall back to per-type requests so one bad metric
+          // still cannot block the core connection.
+          const optionalMissing = HEALTH_CONNECT_OPTIONAL_READ_TYPES.filter(
+            (recordType) => !grantedReadTypes.has(recordType)
+          );
+          if (optionalMissing.length) {
+            try {
+              const result = await ctx.module.requestPermission(
+                optionalMissing.map((recordType) => ({
+                  recordType,
+                  accessType: "read" as const,
+                }))
+              );
+              if (Array.isArray(result)) {
+                for (const permission of result) {
+                  if (permission?.recordType) {
+                    permissionsByType.set(permission.recordType, permission);
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn(
+                "[HealthService] optional permission batch failed, retrying individually:",
+                e
+              );
+              await requestOptionalIndividually(optionalMissing);
+            }
+          }
 
           // Re-read the authoritative permission state. Some bridge versions
           // do not return the granted list from requestPermission().
@@ -1677,7 +1904,7 @@ export const HealthService = {
           );
         });
 
-        return results
+        const mapped: WorkoutSession[] = results
           .map((w: any, i: number): WorkoutSession => {
             const startTime = new Date(w.start || w.startDate);
             const endTime = new Date(w.end || w.endDate);
@@ -1696,10 +1923,18 @@ export const HealthService = {
               calories: w.calories ?? null,
               distance: w.distance ?? null,
               avgHeartRate: null,
+              maxHeartRate: null,
+              minHeartRate: null,
+              heartRateCurve: null,
               exerciseType: typeof w.activityId === "number" ? w.activityId : null,
             };
           })
           .sort((a, b) => b.startTime.getTime() - a.startTime.getTime());
+        // Workout records are summary-only, but the wearable's raw heart-rate
+        // samples still cover each session window — read them once so every
+        // workout gets its avg/max/min HR and heart-rate curve.
+        await attachWorkoutHeartRates(ctx, mapped, start, end);
+        return mapped;
       }
 
       if (ctx.type === "healthconnect") {
@@ -1728,7 +1963,7 @@ export const HealthService = {
           calRecords = await hcRead(ctx.module, "ActiveCaloriesBurned", start, end);
         }
 
-        return records
+        const mapped: WorkoutSession[] = records
           .map((r: any, i: number): WorkoutSession => {
             const startTime = new Date(r.startTime);
             const endTime = new Date(r.endTime);
@@ -1760,10 +1995,19 @@ export const HealthService = {
               calories,
               distance: null,
               avgHeartRate: null,
+              maxHeartRate: null,
+              minHeartRate: null,
+              heartRateCurve: null,
               exerciseType: r.exerciseType ?? null,
             };
           })
           .sort((a, b) => b.startTime.getTime() - a.startTime.getTime());
+        // ExerciseSession records carry no heart-rate fields, but the
+        // wearable's raw HeartRate samples still cover each session window —
+        // read them once so every workout gets its avg/max/min HR and
+        // heart-rate curve (this is what other apps show as the HR graph).
+        await attachWorkoutHeartRates(ctx, mapped, start, end);
+        return mapped;
       }
     } catch (e) {
       console.warn("[HealthService] getWorkouts failed:", e);

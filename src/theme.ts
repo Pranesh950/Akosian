@@ -241,3 +241,20 @@ export function formatMonthYear(d: Date = new Date()): string {
 export function formatAsOf(d: Date = new Date()): string {
   return `As of ${d.toLocaleDateString("en-US", { month: "long", day: "numeric" })}`;
 }
+
+/**
+ * Format a decimal-hours sleep duration as hours + minutes ("7h 24m")
+ * instead of a decimal ("7.4h"). Rounds to the nearest minute.
+ * Returns "—" for null/NaN.
+ */
+export function formatSleepDuration(
+  hours: number | null | undefined
+): string {
+  if (hours == null || !Number.isFinite(hours)) return "—";
+  const total = Math.max(0, Math.round(hours * 60));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h <= 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}

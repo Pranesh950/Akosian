@@ -16,7 +16,7 @@ import { theme } from "../theme";
  * Uses React Native's built-in Animated API so the chat UI does not require
  * an additional native animation dependency.
  */
-export function ThinkingBubble() {
+export function ThinkingBubble({ label = "Thinking" }: { label?: string }) {
   const dotAnimations = useRef([
     new Animated.Value(0.35),
     new Animated.Value(0.35),
@@ -57,7 +57,7 @@ export function ThinkingBubble() {
         />
       </View>
       <View style={styles.bubble}>
-        <Text style={styles.label}>Thinking</Text>
+        <Text style={styles.label}>{label}</Text>
         <View style={styles.indicator} accessibilityLabel="Assistant is thinking">
           {dotAnimations.map((animation, index) => (
             <Animated.View

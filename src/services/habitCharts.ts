@@ -6,7 +6,7 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-import { getRecentHabitLogs, HABIT_LIBRARY, HabitLog } from "./journal";
+import { getRecentHabitLogs, findHabit, HabitLog } from "./journal";
 
 export type SeriesKind = "binary" | "numeric";
 
@@ -58,7 +58,7 @@ export async function getJournalSeries(
   const emittedIds = new Set<string>();
 
   for (const habitId of activeHabitIds) {
-    const meta = HABIT_LIBRARY.find((habit) => habit.id === habitId);
+    const meta = findHabit(habitId);
     if (!meta) continue;
 
     const values = chronological.map((log) => {

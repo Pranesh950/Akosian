@@ -20,6 +20,7 @@ import {
 } from "@expo-google-fonts/nunito";
 import { HealthService } from "../src/services/health";
 import { ensureMorningBriefScheduled } from "../src/services/morningBrief";
+import { refreshHabitLibrary } from "../src/services/journal";
 
 // Present notifications while the app is in the foreground. Without this
 // handler, expo-notifications silently drops every notification when the app
@@ -58,6 +59,9 @@ export default function RootLayout() {
       // the Overview tab shows a connect banner — onboarding is never
       // restarted on its own.
       if (isOnboardingComplete) {
+        // Warm the habit library cache (custom habits) so sync consumers
+        // like plan validation and the morning brief see the full library.
+        refreshHabitLibrary().catch(() => {});
         try {
           await HealthService.initialize(false);
         } catch (e) {
@@ -95,6 +99,7 @@ export default function RootLayout() {
           name="food-chat"
           options={{ presentation: "modal", animation: "slide_from_bottom" }}
         />
+        <Stack.Screen name="health-chat" />
         <Stack.Screen
           name="meal-options"
           options={{ presentation: "modal", animation: "slide_from_bottom" }}

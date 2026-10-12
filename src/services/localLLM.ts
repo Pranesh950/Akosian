@@ -427,6 +427,10 @@ export interface DisplayMessage {
   isAction?: boolean;
   pendingApproval?: { type: string; mealId: string; foodName: string; date: string; newServingG?: number };
   mealList?: { foodName: string; servingGrams: number; calories: number; protein: number; carbs: number; fat: number }[];
+  /** Agent data sources for the provenance footer (new AI stack only). */
+  sources?: string[];
+  /** Model reasoning text for the subtle sub-line (new AI stack only). */
+  reasoning?: string;
 }
 
 export function extractMessages(turns: ChatTurn[]): DisplayMessage[] {

@@ -8,6 +8,7 @@
 
 import { useState } from "react";
 import {
+  ActivityIndicator,
   ScrollView,
   View,
   Text,
@@ -17,8 +18,13 @@ import {
 import { useRouter, useLocalSearchParams } from "expo-router";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { theme } from "../../src/theme";
+import { GradientWash } from "../../src/components/GradientWash";
 import { useGoBack } from "../../src/hooks/useGoBack";
 import { setLLMChoice, type LLMChoice } from "../../src/services/localLLM";
+import {
+  checkLocalAIReadiness,
+  type LocalAIReadiness,
+} from "../../src/services/deviceCheck";
 
 const choices: {
   id: LLMChoice;
@@ -35,7 +41,7 @@ const choices: {
     eyebrow: "OPENAI · ANTHROPIC · GEMINI · OPENROUTER",
     badge: "recommended",
     badgeLabel: "RECOMMENDED",
-    description: "Bring your own API key from OpenAI, Anthropic, Google Gemini, or OpenRouter. You pick the model and pay the provider directly — we never see or store your key outside secure storage.",
+    description: "OpenAI, Anthropic, Gemini, or OpenRouter. You pick the model and pay the provider directly; your key stays in this device's secure storage. Tip: OpenRouter offers free models.",
     icon: "key-outline",
   },
   {
@@ -44,7 +50,7 @@ const choices: {
     eyebrow: "ON-DEVICE",
     badge: "warn",
     badgeLabel: "NOT RECOMMENDED",
-    description: "Runs a small model on your phone so prompts never leave the device, but it's less capable, slower, and needs a recent high-end phone with lots of free storage.",
+    description: "A small model runs on your phone, so prompts never leave the device. Less capable, slower, and needs a recent high-end phone with plenty of free storage.",
     icon: "cellphone-lock",
   },
   {
@@ -53,7 +59,7 @@ const choices: {
     eyebrow: "OFFLINE · PRIVACY MAX",
     badge: "neutral",
     badgeLabel: "PRIVATE",
-    description: "Skip the assistant entirely. Every health, journal, and food feature — including barcode scanning — still works on your device. You can turn AI on anytime later.",
+    description: "Skip the assistant. Every health, journal, and food feature — including barcode scanning — still works on-device. Turn AI on anytime later.",
     icon: "robot-off-outline",
   },
 ];
@@ -65,12 +71,32 @@ export default function AIChoiceScreen() {
   const fromOnboarding = params.from === "onboarding";
   const [choice, setChoice] = useState<LLMChoice>("byok");
   const [saving, setSaving] = useState(false);
+  // Local-AI device check: runs before the user can commit to "local".
+  const [checking, setChecking] = useState(false);
+  const [readiness, setReadiness] = useState<LocalAIReadiness | null>(null);
+
+  const selectChoice = (id: LLMChoice) => {
+    setChoice(id);
+    // A stale verdict must never follow the user to a different option.
+    if (id !== "local") setReadiness(null);
+  };
+
+  const finishLocal = async () => {
+    await setLLMChoice("local");
+    if (fromOnboarding) {
+      router.push("/onboarding/goals");
+    } else {
+      // Reached from a chat screen ("Enable AI"): return to the chat.
+      handleBack();
+    }
+  };
 
   const handleContinue = async () => {
-    setSaving(true);
+    if (saving || checking) return;
     try {
       if (choice === "byok") {
         // The BYOK screen saves the key, sets the choice, and continues.
+        setSaving(true);
         const url = `/onboarding/byok?from=${fromOnboarding ? "onboarding" : "chat"}`;
         if (fromOnboarding) {
           router.push(url);
@@ -79,6 +105,22 @@ export default function AIChoiceScreen() {
         }
         return;
       }
+      if (choice === "local") {
+        // First tap measures the device; second tap (verdict shown) proceeds.
+        if (!readiness) {
+          setChecking(true);
+          try {
+            setReadiness(await checkLocalAIReadiness());
+          } finally {
+            setChecking(false);
+          }
+          return;
+        }
+        setSaving(true);
+        await finishLocal();
+        return;
+      }
+      setSaving(true);
       await setLLMChoice(choice);
       if (fromOnboarding) {
         router.push("/onboarding/goals");
@@ -91,8 +133,21 @@ export default function AIChoiceScreen() {
     }
   };
 
+  const continueLabel = saving
+    ? "Saving..."
+    : checking
+      ? "Checking your device…"
+      : choice === "local" && !readiness
+        ? "Check my device"
+        : choice === "local" && readiness?.verdict === "poor"
+          ? "Proceed anyway"
+          : choice === "local"
+            ? "Proceed with local AI"
+            : "Continue";
+
   return (
     <View style={styles.container}>
+      <GradientWash color={theme.colors.info} />
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -108,9 +163,8 @@ export default function AIChoiceScreen() {
           </View>
           <Text style={styles.title}>Choose how your assistant runs</Text>
           <Text style={styles.subtitle}>
-            Bring your own key from a major provider, run a small model on your
-            device, or skip the assistant entirely. This choice is saved on
-            your device and can be changed later.
+            Bring your own key, run a model on-device, or skip it. Saved on
+            this device — change anytime.
           </Text>
         </View>
 
@@ -121,7 +175,7 @@ export default function AIChoiceScreen() {
               <TouchableOpacity
                 key={item.id}
                 style={[styles.choiceCard, selected && styles.choiceCardSelected]}
-                onPress={() => setChoice(item.id)}
+                onPress={() => selectChoice(item.id)}
                 activeOpacity={0.85}
               >
                 <View style={styles.choiceTop}>
@@ -169,11 +223,9 @@ export default function AIChoiceScreen() {
             <View style={styles.infoCopy}>
               <Text style={styles.infoTitle}>How your key is handled</Text>
               <Text style={styles.infoText}>
-                Your key is stored encrypted in your device's secure storage
-                and sent directly from your phone to the provider you choose —
-                we never see it and earn nothing from it. Usage is billed by
-                the provider at their rates; you can change or remove the key
-                anytime.
+                Stored encrypted on this device and sent straight from your
+                phone to the provider you pick — never through us. Billed at
+                the provider's rates; remove the key anytime.
               </Text>
             </View>
           </View>
@@ -185,10 +237,10 @@ export default function AIChoiceScreen() {
             <View style={styles.infoCopy}>
               <Text style={styles.infoTitle}>What still works without AI</Text>
               <Text style={styles.infoText}>
-                Readiness, strain, biological age, the morning brief, journaling,
-                and the full offline food database (including barcode scanning)
-                all run entirely on your phone with no AI. If you change your
-                mind, the chat screens can turn AI on anytime.
+                Readiness, strain, biological age, the morning brief,
+                journaling, and the offline food database with barcode
+                scanning all run on your phone. Turn AI on anytime from the
+                chat screens.
               </Text>
             </View>
           </View>
@@ -200,15 +252,20 @@ export default function AIChoiceScreen() {
             <View style={styles.infoCopy}>
               <Text style={styles.infoTitle}>Before choosing local</Text>
               <Text style={styles.infoText}>
-                Local AI runs without sending prompts to a cloud service, but it
-                has limited features, can be slower, and may need to download
-                hundreds of megabytes. Choose it only if your phone has a
-                recent high-performance chip, at least 4 GB of free storage,
-                and enough memory for on-device AI.
+                Prompts never reach a cloud service, but expect fewer features,
+                slower replies, and a large download. “Check my device”
+                tests this phone's chip, memory, and storage first.
               </Text>
             </View>
           </View>
         )}
+
+        {choice === "local" && readiness ? (
+          <DeviceVerdictCard
+            readiness={readiness}
+            onDismiss={() => setReadiness(null)}
+          />
+        ) : null}
 
         <View style={styles.infoCard}>
           <View style={[styles.infoIcon, { backgroundColor: `${theme.colors.primary}0F` }]}>
@@ -217,11 +274,9 @@ export default function AIChoiceScreen() {
           <View style={styles.infoCopy}>
             <Text style={styles.infoTitle}>We don't earn money from any of them</Text>
             <Text style={styles.infoText}>
-              Bring-your-own-key, local AI, and going fully offline are all free
-              to set up and we make nothing from your choice — no commission,
-              referral fee, or payment from any model provider. If you ever pay
-              for a provider's API or usage, that money goes directly to that
-              provider, not to us.
+              All three options are free to set up, and we make nothing from
+              your choice — no commission, referral fee, or provider payment.
+              Any API usage you pay for goes straight to that provider, not us.
             </Text>
           </View>
         </View>
@@ -231,14 +286,12 @@ export default function AIChoiceScreen() {
           <View style={styles.privacyCopy}>
             <Text style={styles.privacyTitle}>We scrub before cloud requests</Text>
             <Text style={styles.privacyText}>
-              Before anything goes to the cloud AI service, our app removes common
-              unnecessary identifiers such as email addresses, phone numbers,
-              links, network addresses, government-ID patterns, and address or
-              name phrases. This is best-effort scrubbing—not a guarantee that
-              every identifying detail is removed. Cloud AI still means text
-              leaves your phone, so do not include anything you need kept
-              completely offline. If you bring your own key, it is stored only
-              on this device and sent only to the provider you choose.
+              Before cloud requests we scrub common identifiers — emails,
+              phone numbers, links, network addresses, government-ID patterns,
+              and name or address phrases. Best-effort, not a guarantee: cloud
+              AI still means text leaves your phone, so keep anything you need
+              offline out of chat. BYOK keys stay on this device and go only to
+              your provider.
             </Text>
           </View>
         </View>
@@ -246,17 +299,78 @@ export default function AIChoiceScreen() {
 
       <View style={styles.footer}>
         <TouchableOpacity
-          style={styles.button}
+          style={[styles.button, (saving || checking) && styles.buttonBusy]}
           onPress={handleContinue}
-          disabled={saving}
+          disabled={saving || checking}
           activeOpacity={0.85}
         >
-          <Text style={styles.buttonText}>{saving ? "Saving..." : "Continue"}</Text>
-          {!saving && (
+          {checking ? (
+            <ActivityIndicator size="small" color={theme.colors["on-primary"]} />
+          ) : (
+            <Text style={styles.buttonText}>{continueLabel}</Text>
+          )}
+          {!saving && !checking && (
             <MaterialCommunityIcons name="arrow-right" size={19} color={theme.colors["on-primary"]} />
           )}
         </TouchableOpacity>
       </View>
+    </View>
+  );
+}
+
+function DeviceVerdictCard({
+  readiness,
+  onDismiss,
+}: {
+  readiness: LocalAIReadiness;
+  onDismiss: () => void;
+}) {
+  const accent =
+    readiness.verdict === "great"
+      ? theme.colors.success
+      : readiness.verdict === "ok"
+        ? theme.colors.warning
+        : readiness.verdict === "poor"
+          ? theme.colors.danger
+          : theme.colors.muted;
+  const icon =
+    readiness.verdict === "great"
+      ? "check-circle-outline"
+      : readiness.verdict === "ok"
+        ? "alert-circle-outline"
+        : readiness.verdict === "poor"
+          ? "close-circle-outline"
+          : "help-circle-outline";
+  return (
+    <View style={styles.verdictCard}>
+      <View style={styles.verdictHeader}>
+        <View style={[styles.infoIcon, { backgroundColor: `${accent}14` }]}>
+          <MaterialCommunityIcons name={icon} size={20} color={accent} />
+        </View>
+        <View style={styles.infoCopy}>
+          <Text style={styles.infoTitle}>Your device check</Text>
+          <Text style={styles.verdictHeadline}>{readiness.headline}</Text>
+        </View>
+      </View>
+      <Text style={styles.infoText}>{readiness.detail}</Text>
+      <View style={styles.specList}>
+        {readiness.specs.map((spec) => (
+          <View key={spec.label} style={styles.specRow}>
+            <Text style={styles.specLabel}>{spec.label}</Text>
+            <View style={styles.specValueWrap}>
+              <Text style={styles.specValue}>{spec.value}</Text>
+              {spec.ok === true ? (
+                <MaterialCommunityIcons name="check" size={14} color={theme.colors.success} />
+              ) : spec.ok === false ? (
+                <MaterialCommunityIcons name="close" size={14} color={theme.colors.danger} />
+              ) : null}
+            </View>
+          </View>
+        ))}
+      </View>
+      <TouchableOpacity onPress={onDismiss} activeOpacity={0.7} style={styles.verdictDismiss}>
+        <Text style={styles.verdictDismissText}>Re-check or pick a different option</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -495,5 +609,67 @@ const styles = StyleSheet.create({
   buttonText: {
     ...theme.typography.labelMd,
     color: theme.colors["on-primary"],
+  },
+  buttonBusy: {
+    opacity: 0.7,
+  },
+  verdictCard: {
+    marginTop: theme.spacing.lg,
+    padding: theme.spacing.md,
+    borderRadius: theme.radii.md,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    ...theme.shadows.cardSoft,
+  },
+  verdictHeader: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  verdictHeadline: {
+    ...theme.typography.labelMd,
+    color: theme.colors.ink,
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  specList: {
+    marginTop: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    paddingTop: theme.spacing.sm,
+    gap: theme.spacing.xs,
+  },
+  specRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  specLabel: {
+    ...theme.typography.legal,
+    color: theme.colors.muted,
+  },
+  specValueWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  specValue: {
+    ...theme.typography.legal,
+    color: theme.colors.ink,
+    fontFamily: "Nunito_600SemiBold",
+    fontWeight: "600",
+  },
+  verdictDismiss: {
+    marginTop: theme.spacing.sm,
+    alignSelf: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  verdictDismissText: {
+    ...theme.typography.legal,
+    color: theme.colors.info,
+    fontFamily: "Nunito_600SemiBold",
+    fontWeight: "600",
   },
 });

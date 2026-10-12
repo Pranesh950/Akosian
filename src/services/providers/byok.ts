@@ -50,10 +50,10 @@ export const BYOK_DEFAULTS: Record<
   },
   openrouter: {
     label: "OpenRouter",
-    model: "openai/gpt-4o-mini",
+    model: "openrouter/free",
     baseUrl: "https://openrouter.ai/api/v1",
     endpoint: "/chat/completions",
-    modelHint: "e.g. openai/gpt-4o-mini, anthropic/claude-3.5-haiku",
+    modelHint: "Type openrouter/free for free models — no payment needed.",
   },
 };
 

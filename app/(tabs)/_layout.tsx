@@ -140,7 +140,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
               bottom:
                 Math.max(insets.bottom, 10) +
                 theme.spacing.sm +
-                68 +
+                80 +
                 theme.spacing.sm,
               opacity: menuOpacity,
               transform: [{ translateY: menuTranslateY }],
@@ -155,7 +155,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
             accessibilityLabel="Search foods"
           >
             <View style={[styles.menuIcon, { backgroundColor: theme.colors.surfaceElevated }]}>
-              <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.success} />
+              <MaterialCommunityIcons name="magnify" size={22} color={theme.colors.success} />
             </View>
             <View style={styles.menuTextWrap}>
               <Text style={styles.menuItemTitle}>Search Foods</Text>
@@ -173,7 +173,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
             accessibilityLabel="Scan barcode"
           >
             <View style={[styles.menuIcon, { backgroundColor: `${theme.colors.success}14` }]}>
-              <MaterialCommunityIcons name="barcode-scan" size={20} color={theme.colors.success} />
+              <MaterialCommunityIcons name="barcode-scan" size={22} color={theme.colors.success} />
             </View>
             <View style={styles.menuTextWrap}>
               <Text style={styles.menuItemTitle}>Scan Barcode</Text>
@@ -191,7 +191,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
             accessibilityLabel="AI food log"
           >
             <View style={[styles.menuIcon, { backgroundColor: `${theme.colors.primary}14` }]}>
-              <MaterialCommunityIcons name="robot-outline" size={20} color={theme.colors.primary} />
+              <MaterialCommunityIcons name="robot-outline" size={22} color={theme.colors.primary} />
             </View>
             <View style={styles.menuTextWrap}>
               <Text style={styles.menuItemTitle}>AI Food Log</Text>
@@ -209,7 +209,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
             accessibilityLabel="Ask AI about health"
           >
             <View style={[styles.menuIcon, { backgroundColor: `${theme.colors.info}16` }]}>
-              <MaterialCommunityIcons name="brain" size={20} color={theme.colors.info} />
+              <MaterialCommunityIcons name="brain" size={22} color={theme.colors.info} />
             </View>
             <View style={styles.menuTextWrap}>
               <Text style={styles.menuItemTitle}>Ask AI</Text>
@@ -227,7 +227,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
             accessibilityLabel="Settings"
           >
             <View style={[styles.menuIcon, { backgroundColor: theme.colors.surfaceElevated }]}>
-              <MaterialCommunityIcons name="cog-outline" size={20} color={theme.colors.ink} />
+              <MaterialCommunityIcons name="cog-outline" size={22} color={theme.colors.ink} />
             </View>
             <View style={styles.menuTextWrap}>
               <Text style={styles.menuItemTitle}>Settings</Text>
@@ -247,8 +247,8 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
         >
           <MaterialCommunityIcons
             name={menuOpen ? "close" : "plus"}
-            size={24}
-            color={theme.colors.ink}
+            size={28}
+            color={theme.colors["on-primary"]}
           />
         </TouchableOpacity>
 
@@ -296,7 +296,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
               >
                 <MaterialCommunityIcons
                   name={isFocused ? meta.iconFocused : meta.icon}
-                  size={22}
+                  size={26}
                   color={isFocused ? theme.colors.ink : theme.colors.muted}
                 />
                 <Text
@@ -348,16 +348,16 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.xs,
   },
   plusButton: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: theme.colors.card,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: theme.colors.ink,
     alignItems: "center",
     justifyContent: "center",
     ...theme.shadows.elevated,
   },
   plusButtonActive: {
-    backgroundColor: theme.colors.card,
+    backgroundColor: theme.colors["primary-active"],
   },
   menuPopup: {
     position: "absolute",
@@ -373,14 +373,14 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    gap: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    gap: 16,
   },
   menuIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
+    width: 46,
+    height: 46,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -408,8 +408,8 @@ const styles = StyleSheet.create({
   tabBar: {
     flex: 1,
     flexDirection: "row",
-    height: 68,
-    borderRadius: 24,
+    height: 80,
+    borderRadius: 26,
     backgroundColor: theme.colors.card,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -430,10 +430,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 5,
     zIndex: 10,
-    paddingVertical: 9,
+    paddingVertical: 12,
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 13,
     fontFamily: "Nunito_600SemiBold",
     fontWeight: "600",
   },

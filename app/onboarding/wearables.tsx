@@ -26,6 +26,7 @@ import {
   isConnectedStatus,
 } from "../../src/services/health";
 import { theme } from "../../src/theme";
+import { GradientWash } from "../../src/components/GradientWash";
 import { useGoBack } from "../../src/hooks/useGoBack";
 
 type Brand =
@@ -635,7 +636,9 @@ export default function WearablesScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <View style={styles.container}>
+      <GradientWash color={theme.colors.info} />
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       <TouchableOpacity onPress={handleBack} style={styles.backBtn} activeOpacity={0.7}>
         <MaterialCommunityIcons name="arrow-left" size={22} color={theme.colors.ink} />
       </TouchableOpacity>
@@ -644,8 +647,8 @@ export default function WearablesScreen() {
         <Text style={styles.step}>CONNECT</Text>
         <Text style={styles.title}>{config.title}</Text>
         <Text style={styles.subtitle}>
-          Sync your {config.app_name} data to {healthStoreName}, and we'll pull
-          it in automatically.
+          Your {config.app_name} syncs into {healthStoreName} — we read it
+          from there.
         </Text>
       </View>
 
@@ -729,8 +732,8 @@ export default function WearablesScreen() {
           color={theme.colors.ink}
         />
         <Text style={styles.infoText}>
-          Once enabled, your {config.app_name} data will flow into{" "}
-          {healthStoreName} automatically, and this app will read it from there.
+          Once enabled, {config.app_name} data flows into {healthStoreName}
+          automatically — we read it from there.
         </Text>
       </View>
 
@@ -775,7 +778,8 @@ export default function WearablesScreen() {
           <Text style={styles.laterButtonText}>Continue Without Connecting</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -783,6 +787,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.canvas,
+  },
+  scroll: {
+    flex: 1,
   },
   content: {
     paddingHorizontal: theme.spacing.xl,

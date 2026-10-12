@@ -43,6 +43,10 @@ interface ChatBubbleProps {
     carbs: number;
     fat: number;
   } | null;
+  /** Data sources the agent read from this turn (e.g. "Sleep", "Journal"). */
+  sources?: string[];
+  /** The model's reasoning text, shown as a subtle sub-line. */
+  reasoning?: string;
 }
 
 export function ChatBubble({
@@ -54,6 +58,8 @@ export function ChatBubble({
   onReject,
   mealList,
   mealInfo,
+  sources,
+  reasoning,
 }: ChatBubbleProps) {
   const isUser = sender === "user";
 
@@ -109,6 +115,14 @@ export function ChatBubble({
   }
 
   // ── Regular message bubble ────────────────────────────────────
+  // A tool-only agent step carries no user-visible text; rendering it would
+  // leave an empty card (plus orphaned source lines) in the transcript, so
+  // drop it — its provenance is merged into the next visible assistant turn
+  // by the chat session.
+  if (!isUser && !text?.trim() && !mealList?.length && !mealInfo) {
+    return null;
+  }
+
   return (
     <View
       style={[
@@ -126,6 +140,7 @@ export function ChatBubble({
         </View>
       )}
 
+      <View style={styles.bubbleCol}>
       <View
         style={[
           styles.bubble,
@@ -133,6 +148,7 @@ export function ChatBubble({
         ]}
       >
         {mealList && mealList.length > 0 ? (
+
           <View style={styles.mealListWrap}>
             {text ? (
               <Text style={styles.bubbleTextAssistant}>{text}</Text>
@@ -222,6 +238,24 @@ export function ChatBubble({
           </Text>
         )}
       </View>
+      {!isUser && (reasoning || (sources && sources.length > 0)) && (
+        <View style={styles.metaWrap}>
+          {reasoning ? (
+            <Text style={styles.reasoningText} numberOfLines={3}>
+              {reasoning}
+            </Text>
+          ) : null}
+          {sources && sources.length > 0 ? (
+            <View style={styles.sourcesRow}>
+              <MaterialCommunityIcons name="database-search-outline" size={11} color={theme.colors.muted} />
+              <Text style={styles.sourcesText} numberOfLines={1}>
+                {sources.join(" · ")}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      )}
+      </View>
     </View>
   );
 }
@@ -250,13 +284,41 @@ const styles = StyleSheet.create({
   bubbleRow: {
     flexDirection: "row",
     marginBottom: 12,
+    gap: 10,
   },
   bubbleRowUser: {
     justifyContent: "flex-end",
   },
   bubbleRowAssistant: {
     justifyContent: "flex-start",
-    gap: 10,
+  },
+  bubbleCol: {
+    // Width cap lives here (relative to the full-width row) so short messages
+    // like "hi" hug their content instead of collapsing to a character per line.
+    flexShrink: 1,
+    maxWidth: "78%",
+    gap: 6,
+  },
+  metaWrap: {
+    paddingHorizontal: 6,
+    gap: 3,
+  },
+  reasoningText: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: theme.colors.muted,
+    fontStyle: "italic",
+    fontFamily: "Nunito_400Regular",
+  },
+  sourcesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  sourcesText: {
+    fontSize: 11,
+    color: theme.colors.muted,
+    fontFamily: "Nunito_500Medium",
   },
 
   // ── Avatar ─────────────────────────────────────────────────────
@@ -275,10 +337,10 @@ const styles = StyleSheet.create({
 
   // ── Bubble ─────────────────────────────────────────────────────
   bubble: {
-    maxWidth: "78%",
     borderRadius: 22,
     paddingHorizontal: 16,
     paddingVertical: 12,
+    flexShrink: 1,
   },
   bubbleUser: {
     backgroundColor: theme.colors.primary,

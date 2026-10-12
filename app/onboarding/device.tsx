@@ -17,6 +17,7 @@ import {
 import { useRouter } from "expo-router";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { theme } from "../../src/theme";
+import { GradientWash } from "../../src/components/GradientWash";
 import { HealthService } from "../../src/services/health";
 
 type Device =
@@ -31,6 +32,19 @@ type Device =
   | "whoop"
   | "amazfit"
   | "other";
+
+// Soft tinted icon chips, cycled per row — echoes the vitals grid on Home.
+const DEVICE_ACCENTS = [
+  theme.colors.info,
+  theme.colors.success,
+  theme.colors.danger,
+  theme.colors.warning,
+  theme.colors.lilac,
+  theme.colors.sky,
+  theme.colors.coral,
+  theme.colors.sleep,
+  theme.colors.energy,
+];
 
 const devices: {
   id: Device;
@@ -127,12 +141,13 @@ export default function DeviceScreen() {
 
   return (
     <View style={styles.container}>
+      <GradientWash color={theme.colors.info} />
       <View style={styles.header}>
         <Text style={styles.step}>1 of 3</Text>
         <Text style={styles.title}>What do you wear?</Text>
         <Text style={styles.subtitle}>
-          Connect a device for automatic health data, or continue without one.
-          You can change this later.
+          Connect a device for automatic data, or continue without one — you
+          can change this later.
         </Text>
       </View>
 
@@ -140,18 +155,20 @@ export default function DeviceScreen() {
         contentContainerStyle={styles.options}
         showsVerticalScrollIndicator={false}
       >
-        {visibleDevices.map((device) => (
+        {visibleDevices.map((device, i) => {
+          const accent = DEVICE_ACCENTS[i % DEVICE_ACCENTS.length];
+          return (
           <TouchableOpacity
             key={device.id}
             style={styles.option}
             onPress={() => handleSelect(device.id)}
             activeOpacity={0.75}
           >
-            <View style={styles.optionIcon}>
+            <View style={[styles.optionIcon, { backgroundColor: `${accent}14` }]}>
               <MaterialCommunityIcons
                 name={device.icon as any}
-                size={28}
-                color={theme.colors["on-primary"]}
+                size={26}
+                color={accent}
               />
             </View>
             <View style={styles.optionInfo}>
@@ -164,7 +181,8 @@ export default function DeviceScreen() {
               color={theme.colors.muted}
             />
           </TouchableOpacity>
-        ))}
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -211,10 +229,9 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
   },
   optionIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: theme.radii.md,
-    backgroundColor: theme.colors.primary,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },

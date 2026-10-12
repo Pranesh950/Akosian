@@ -7,7 +7,8 @@
 // (at your option) any later version.
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { HABIT_LIBRARY, saveActiveHabitIds } from "./journal";
+import { formatSleepDuration } from "../theme";
+import { getHabitLibrary, saveActiveHabitIds } from "./journal";
 import { getGoalById, getGoalChunkText, searchGoalChunks, GOAL_DOCS } from "./goalLibrary";
 import { getHealthProfile } from "./profile";
 import { getMeals, MealEntry } from "./foodDatabase";
@@ -51,7 +52,7 @@ const PLAN_VERSION = 1;
 
 export function validateHabitIds(ids: unknown): string[] {
   if (!Array.isArray(ids)) return [];
-  const valid = new Set(HABIT_LIBRARY.map((habit) => habit.id));
+  const valid = new Set(getHabitLibrary().map((habit) => habit.id));
   return Array.from(new Set(ids.map(String))).filter((id) => valid.has(id)).slice(0, 14);
 }
 
@@ -178,14 +179,17 @@ export async function buildDraftPlan(input: PlanInput): Promise<CoachPlan> {
   const modes = collectGoalModes(validGoals.map((goal) => goal.id));
 
   const profile = await getHealthProfile();
-  // Estimates based on a reference weight/height; a real profile or Coach
-  // chat refines these later.
-  const referenceWeightKg = profile?.biologicalSex === "female" ? 62 : profile?.biologicalSex === "male" ? 75 : 68;
+  // Real measurements from the onboarding profile when available; otherwise
+  // sex-based reference values (the Coach chat refines these later).
+  const referenceWeightKg =
+    profile?.weightKg ??
+    (profile?.biologicalSex === "female" ? 62 : profile?.biologicalSex === "male" ? 75 : 68);
+  const referenceHeightCm = profile?.heightCm ?? 170;
   const age = profile?.chronologicalAge ?? 30;
   const isFemale = profile?.biologicalSex === "female";
 
   // Mifflin-St Jeor.
-  const bmr = 10 * referenceWeightKg + 6.25 * 170 - 5 * age + (isFemale ? -161 : 5);
+  const bmr = 10 * referenceWeightKg + 6.25 * referenceHeightCm - 5 * age + (isFemale ? -161 : 5);
   const tdee = Math.max(1400, bmr * (ACTIVITY_MULTIPLIERS[activityLevel] ?? 1.375));
 
   // ── Calorie budget ──────────────────────────────────────────
@@ -244,7 +248,7 @@ export async function buildDraftPlan(input: PlanInput): Promise<CoachPlan> {
   for (const id of ["water_goal", "early_bed", "device_bed"]) {
     habitScores.set(id, (habitScores.get(id) ?? 0) + 1);
   }
-  const libraryOrder = new Map(HABIT_LIBRARY.map((habit, index) => [habit.id, index]));
+  const libraryOrder = new Map(getHabitLibrary().map((habit, index) => [habit.id, index]));
   const habitIds = validateHabitIds(
     Array.from(habitScores.entries())
       .map(([id, score]) => ({ id, score, order: libraryOrder.get(id) ?? 999 }))
@@ -437,6 +441,7 @@ function buildPlanToolHandlers(
             topic,
             habits: goal.habits,
             sleepHours: goal.sleepHours,
+            sleepDuration: formatSleepDuration(goal.sleepHours),
             stepsPerDay: goal.stepsPerDay,
             guidance: text,
           }),
@@ -455,6 +460,7 @@ function buildPlanToolHandlers(
             topic: "targets",
             habits: goal.habits,
             sleepHours: goal.sleepHours,
+            sleepDuration: formatSleepDuration(goal.sleepHours),
             stepsPerDay: goal.stepsPerDay,
             guidance: text,
           }),
@@ -469,6 +475,7 @@ function buildPlanToolHandlers(
           topic: hits.map((hit) => hit.sectionId).join(", "),
           habits: goal.habits,
           sleepHours: goal.sleepHours,
+          sleepDuration: formatSleepDuration(goal.sleepHours),
           stepsPerDay: goal.stepsPerDay,
           guidance: text,
         }),
@@ -486,6 +493,10 @@ function buildPlanToolHandlers(
                 habitIds: plan.habitIds,
                 nutrition: plan.nutrition,
                 sleepHours: plan.sleepHours,
+                sleepDuration:
+                  plan.sleepHours != null
+                    ? formatSleepDuration(plan.sleepHours)
+                    : null,
                 stepsPerDay: plan.stepsPerDay,
                 trainingDays: plan.trainingDays,
                 focusNote: plan.focusNote,
@@ -551,6 +562,10 @@ function buildPlanToolHandlers(
             : "No valid habit ids received — existing journal habits were left unchanged.",
           nutrition: plan.nutrition,
           sleepHours: plan.sleepHours,
+          sleepDuration:
+            plan.sleepHours != null
+              ? formatSleepDuration(plan.sleepHours)
+              : null,
           stepsPerDay: plan.stepsPerDay,
           trainingDays: plan.trainingDays,
         }),

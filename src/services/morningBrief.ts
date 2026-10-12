@@ -13,11 +13,12 @@ import {
   getHabitLog,
   formatDateKey,
   getActiveHabitIds,
-  HABIT_LIBRARY,
+  findHabit,
 } from "./journal";
 import { getMeals } from "./foodDatabase";
 import { loadPlan } from "./coachPlan";
 import { HealthService } from "./health";
+import { formatSleepDuration } from "../theme";
 
 const BRIEF_KEY = "morning_brief_settings_v1";
 export const BRIEF_CHANNEL_ID = "morning-brief";
@@ -102,7 +103,7 @@ export async function buildMorningMessage(): Promise<{ title: string; body: stri
   const log = await getHabitLog(yesterdayKey);
   const plan = await loadPlan();
 
-  const habitMeta = (id: string) => HABIT_LIBRARY.find((habit) => habit.id === id);
+  const habitMeta = (id: string) => findHabit(id);
 
   let completedCount = 0;
   for (const id of activeIds) {
@@ -141,7 +142,7 @@ export async function buildMorningMessage(): Promise<{ title: string; body: stri
     recap.push(`${completedCount}/${activeIds.length} goals`);
   }
   if (steps != null && steps > 0) recap.push(`${steps.toLocaleString()} steps`);
-  if (sleepHours != null && sleepHours > 0) recap.push(`${sleepHours.toFixed(1)}h sleep`);
+  if (sleepHours != null && sleepHours > 0) recap.push(`${formatSleepDuration(sleepHours)} sleep`);
   if (calories > 0) {
     recap.push(`${Math.round(calories).toLocaleString()} cal${protein > 0 ? ` · ${protein.toFixed(0)}g protein` : ""}`);
   }
@@ -154,7 +155,7 @@ export async function buildMorningMessage(): Promise<{ title: string; body: stri
     .slice(0, 3);
   const reminderParts = reminders.map((habit) => habit!.label.toLowerCase());
   if (plan?.sleepHours != null) {
-    reminderParts.push(`${plan.sleepHours}h sleep`);
+    reminderParts.push(`${formatSleepDuration(plan.sleepHours)} sleep`);
   }
 
   const hasJournalData =

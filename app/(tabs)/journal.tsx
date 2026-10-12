@@ -18,10 +18,12 @@ import {
   TextInput,
   Modal,
   Switch,
+  Easing,
 } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { theme } from "../../src/theme";
+import { theme, formatSleepDuration } from "../../src/theme";
+import { GradientWash } from "../../src/components/GradientWash";
 import {
   HabitLog,
   getHabitLog,
@@ -35,9 +37,18 @@ import {
   saveActiveHabitIds,
   addActiveHabit,
   removeActiveHabit,
+  refreshHabitLibrary,
+  findHabit,
+  createCustomHabit,
+  deleteCustomHabit,
+  isCustomHabitId,
+  MAX_CUSTOM_HABITS,
+  type CustomHabitInput,
+  type HabitType,
 } from "../../src/services/journal";
 import { getMeals, deleteMeal, getFoodDatabaseAttribution, MealEntry } from "../../src/services/foodDatabase";
-import { HealthService } from "../../src/services/health";
+import { applyHabitAutofill } from "../../src/services/habitAutofill";
+import { patchHealthProfile } from "../../src/services/profile";
 import { getDistanceUnit, getWeightUnit, kgToLbs, lbsToKg, type DistanceUnit, type WeightUnit } from "../../src/services/units";
 import AmountModal from "../../src/components/AmountModal";
 import { DailyEatingCard } from "../../src/components/DailyEatingCard";
@@ -181,6 +192,103 @@ function AnimatedPress({
   );
 }
 
+/** Week-strip day pill — press feedback plus a spring pop when the selection
+ *  moves, with the pill filling from the bottom by that day's completion. */
+const CALENDAR_PILL_HEIGHT = 60; // keep in sync with styles.calendarPill.height
+
+function DayCell({
+  label,
+  dateNum,
+  score,
+  isFuture,
+  isSelected,
+  isToday,
+  onPress,
+}: {
+  label: string;
+  dateNum: number;
+  score: number;
+  isFuture: boolean;
+  isSelected: boolean;
+  isToday: boolean;
+  onPress: () => void;
+}) {
+  const selAnim = useRef(new Animated.Value(isSelected ? 1 : 0)).current;
+  const pressAnim = useRef(new Animated.Value(1)).current;
+
+  // Spring-pop whenever the selection moves onto (or off of) this day.
+  useEffect(() => {
+    Animated.spring(selAnim, {
+      toValue: isSelected ? 1 : 0,
+      friction: 5,
+      tension: 240,
+      useNativeDriver: true,
+    }).start();
+  }, [isSelected]);
+
+  const clamped = Math.max(0, Math.min(1, Number.isFinite(score) ? score : 0));
+  const fillHeight = Math.round(clamped * CALENDAR_PILL_HEIGHT);
+  const textColor = isFuture ? theme.colors.muted : theme.colors.ink;
+
+  return (
+    <Animated.View
+      style={{
+        transform: [
+          { scale: selAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) },
+        ],
+      }}
+    >
+      <Animated.View style={{ transform: [{ scale: pressAnim }] }}>
+        <TouchableOpacity
+          onPress={onPress}
+          onPressIn={() =>
+            Animated.spring(pressAnim, {
+              toValue: 0.92,
+              friction: 4,
+              tension: 280,
+              useNativeDriver: true,
+            }).start()
+          }
+          onPressOut={() =>
+            Animated.spring(pressAnim, {
+              toValue: 1,
+              friction: 4,
+              tension: 220,
+              useNativeDriver: true,
+            }).start()
+          }
+          disabled={isFuture}
+          activeOpacity={0.9}
+          accessibilityRole="button"
+          accessibilityLabel={`${label} ${dateNum}`}
+          accessibilityState={{ selected: isSelected, disabled: isFuture }}
+        >
+          <View
+            style={[
+              styles.calendarRing,
+              isToday && !isSelected && styles.calendarRingToday,
+              isSelected && styles.calendarRingSelected,
+            ]}
+          >
+            <View style={[styles.calendarPill, isFuture && styles.calendarPillFuture]}>
+              {fillHeight > 0 && (
+                <View
+                  style={[
+                    styles.calendarPillFill,
+                    { height: fillHeight, backgroundColor: getCompletionFillColor(clamped) },
+                  ]}
+                />
+              )}
+              <Text style={[styles.calendarDayName, { color: textColor }]}>{label}</Text>
+              <Text style={[styles.calendarDate, { color: textColor }]}>{dateNum}</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    </Animated.View>
+  );
+}
+
 interface EntryRowProps {
   emoji: string;
   label: string;
@@ -220,6 +328,14 @@ interface TriStateControlProps {
   small?: boolean;
 }
 
+// Counter-bar geometry — single source of truth shared by styles.stepperTrack
+// and CounterControl's fill width (which animates in pixels, not percent:
+// Yoga resolves a percentage width on an absolutely positioned child against
+// a box that skips the track's right padding, so "100%" would paint short of
+// the end and the bar never looked complete at the target).
+const TRACK_WIDTH = 84;
+const TRACK_BORDER = 1;
+
 interface CounterControlProps {
   value: number;
   target?: number;
@@ -227,27 +343,133 @@ interface CounterControlProps {
 }
 
 function CounterControl({ value, target, onChange }: CounterControlProps) {
+  const pop = useRef(new Animated.Value(1)).current;
+  const fill = useRef(new Animated.Value(0)).current;
+  // Last progress the bar animated to — lets us skip restarting the fill
+  // when extra taps past the target don't change it.
+  const lastProgress = useRef(0);
+  const progress = target ? Math.min(Math.max(value / target, 0), 1) : 0;
+  const complete = target ? value >= target : false;
+
+  useEffect(() => {
+    pop.stopAnimation();
+    Animated.sequence([
+      Animated.spring(pop, {
+        toValue: 1.18,
+        damping: 9,
+        stiffness: 420,
+        useNativeDriver: true,
+      }),
+      Animated.spring(pop, {
+        toValue: 1,
+        damping: 8,
+        stiffness: 260,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    // Fast exact timing (no spring lag/overshoot) so the bar lands precisely
+    // on the target even under rapid taps — and stays put past the target.
+    if (progress !== lastProgress.current) {
+      lastProgress.current = progress;
+      Animated.timing(fill, {
+        toValue: progress,
+        duration: 180,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [value, target]);
+
+  // Pixel width so 100% provably spans the whole track (see TRACK_WIDTH).
+  // Clamped on both sides so extra taps past the target can never push the
+  // bar past full — it lands on the target and stays there.
+  const fillWidth = fill.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, TRACK_WIDTH - TRACK_BORDER * 2],
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
   return (
-    <View style={styles.counterControl}>
+    <View style={styles.stepperRow}>
       <TouchableOpacity
-        style={styles.counterButton}
+        style={[styles.stepperBtn, value <= 0 && styles.stepperBtnDisabled]}
         onPress={() => onChange(Math.max(0, value - 1))}
         activeOpacity={0.7}
+        disabled={value <= 0}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        accessibilityLabel="Decrease count"
       >
-        <MaterialCommunityIcons name="minus" size={18} color={theme.colors.ink} />
+        <MaterialCommunityIcons
+          name="minus"
+          size={18}
+          color={value <= 0 ? theme.colors.muted : theme.colors.ink}
+        />
       </TouchableOpacity>
-      <View style={styles.counterValueWrap}>
-        <Text style={styles.counterValue}>{value}</Text>
-        {target ? <Text style={styles.counterTarget}>/{target}</Text> : null}
+
+      <View style={styles.stepperTrack}>
+        {target ? (
+          <Animated.View
+            style={[
+              styles.stepperFill,
+              {
+                width: fillWidth,
+                backgroundColor: complete
+                  ? `${theme.colors.success}30`
+                  : `${theme.colors.ink}14`,
+              },
+            ]}
+          />
+        ) : null}
+        <Animated.View
+          style={{ transform: [{ scale: pop }], flexShrink: 1, maxWidth: "100%" }}
+        >
+          <Text
+            style={styles.stepperText}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
+            <Text
+              style={[
+                styles.stepperValue,
+                complete && { color: theme.colors.success },
+              ]}
+            >
+              {value}
+            </Text>
+            {target ? (
+              <Text style={styles.stepperTarget}> / {target}</Text>
+            ) : null}
+          </Text>
+        </Animated.View>
+        {complete ? (
+          <View style={styles.stepperDoneDot}>
+            <MaterialCommunityIcons
+              name="check"
+              size={11}
+              color={theme.colors.success}
+            />
+          </View>
+        ) : null}
       </View>
+
       <TouchableOpacity
-        style={styles.counterButton}
+        style={[
+          styles.stepperBtn,
+          styles.stepperPlus,
+          complete && styles.stepperPlusDone,
+        ]}
         onPress={() => onChange(value + 1)}
-        activeOpacity={0.7}
+        activeOpacity={0.75}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        accessibilityLabel="Increase count"
       >
-        <MaterialCommunityIcons name="plus" size={18} color={theme.colors.ink} />
+        <MaterialCommunityIcons
+          name={complete ? "check" : "plus"}
+          size={19}
+          color="#FFFFFF"
+        />
       </TouchableOpacity>
     </View>
   );
@@ -282,14 +504,23 @@ function HabitItem({
     <View style={styles.entryRow}>
       <View style={styles.entryLeft}>
         <Text style={styles.entryEmoji}>{habit.emoji}</Text>
-        <Text style={styles.entryLabel}>{habit.label}</Text>
+        <Text style={styles.entryLabel} numberOfLines={1} ellipsizeMode="tail">
+          {habit.label}
+        </Text>
       </View>
       {habit.type === "counter" ? (
-        <CounterControl
-          value={count}
-          target={habit.target}
-          onChange={onCounter}
-        />
+        <View style={styles.autoRow}>
+          {auto && count > 0 ? (
+            <View style={styles.autoBadge}>
+              <Text style={styles.autoBadgeText}>auto</Text>
+            </View>
+          ) : null}
+          <CounterControl
+            value={count}
+            target={habit.target}
+            onChange={onCounter}
+          />
+        </View>
       ) : habit.type === "measure" ? (
         <TouchableOpacity
           style={styles.measureButton}
@@ -311,49 +542,116 @@ function HabitItem({
           <MaterialCommunityIcons name="pencil-outline" size={13} color={theme.colors.muted} />
         </TouchableOpacity>
       ) : (
-        <TriStateControl state={state} onChange={onTriState} />
+        <View style={styles.autoRow}>
+          {auto && state === "yes" ? (
+            <View style={styles.autoBadge}>
+              <Text style={styles.autoBadgeText}>auto</Text>
+            </View>
+          ) : null}
+          <TriStateControl state={state} onChange={onTriState} />
+        </View>
       )}
     </View>
   );
 }
 
 function TriStateControl({ state, onChange, small }: TriStateControlProps) {
+  const yesScale = useRef(new Animated.Value(1)).current;
+  const noScale = useRef(new Animated.Value(1)).current;
+
+  const pop = (anim: Animated.Value) => {
+    anim.stopAnimation();
+    Animated.sequence([
+      Animated.spring(anim, {
+        toValue: 0.84,
+        damping: 10,
+        stiffness: 420,
+        useNativeDriver: true,
+      }),
+      Animated.spring(anim, {
+        toValue: 1,
+        damping: 7,
+        stiffness: 260,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  // Tapping the active choice again clears it back to "skip" — feels like a toggle.
+  const handleYes = () => {
+    pop(yesScale);
+    onChange(state === "yes" ? "skip" : "yes");
+  };
+  const handleNo = () => {
+    pop(noScale);
+    onChange(state === "no" ? "skip" : "no");
+  };
+
+  const size = small ? 36 : 42;
+  const iconSize = small ? 16 : 19;
+
   return (
-    <View style={[styles.triState, small && styles.triStateSmall]}>
-      <TouchableOpacity
-        style={[styles.triOption, state === "no" && styles.triOptionActive]}
-        onPress={() => onChange("no")}
-        activeOpacity={0.7}
-      >
-        <Text style={[styles.triText, state === "no" && styles.triTextActive]}>
-          ✕
-        </Text>
-      </TouchableOpacity>
-      <View style={styles.triDivider} />
-      <TouchableOpacity
-        style={[styles.triOption, state === "skip" && styles.triOptionActive]}
-        onPress={() => onChange("skip")}
-        activeOpacity={0.7}
-      >
-        <Text style={[styles.triText, state === "skip" && styles.triTextActive]}>
-          —
-        </Text>
-      </TouchableOpacity>
-      <View style={styles.triDivider} />
-      <TouchableOpacity
-        style={[styles.triOption, state === "yes" && styles.triOptionActive]}
-        onPress={() => onChange("yes")}
-        activeOpacity={0.7}
-      >
-        <Text style={[styles.triText, state === "yes" && styles.triTextActive]}>
-          ✓
-        </Text>
-      </TouchableOpacity>
+    <View style={styles.binaryRow}>
+      <Animated.View style={{ transform: [{ scale: noScale }] }}>
+        <TouchableOpacity
+          style={[
+            styles.binaryBtn,
+            { width: size, height: small ? 36 : 40 },
+            state === "no" && styles.binaryNoActive,
+          ]}
+          onPress={handleNo}
+          activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityLabel="Mark as not done"
+          accessibilityState={{ selected: state === "no" }}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <MaterialCommunityIcons
+            name="close-thick"
+            size={iconSize}
+            color={state === "no" ? theme.colors.danger : theme.colors.muted}
+          />
+        </TouchableOpacity>
+      </Animated.View>
+      <Animated.View style={{ transform: [{ scale: yesScale }] }}>
+        <TouchableOpacity
+          style={[
+            styles.binaryBtn,
+            { width: size, height: small ? 36 : 40 },
+            state === "yes" && styles.binaryYesActive,
+          ]}
+          onPress={handleYes}
+          activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityLabel="Mark as done"
+          accessibilityState={{ selected: state === "yes" }}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <MaterialCommunityIcons
+            name="check-bold"
+            size={iconSize}
+            color={state === "yes" ? theme.colors.success : theme.colors.muted}
+          />
+        </TouchableOpacity>
+      </Animated.View>
     </View>
   );
 }
 
 const MOOD_LABELS = ["😞", "🙁", "😐", "🙂", "😊"];
+
+const CUSTOM_EMOJIS = [
+  "⭐", "🎯", "💧", "🏋️", "📖", "🧘", "🚶", "🥗",
+  "🍎", "🥩", "💊", "☀️", "🌙", "📵", "🙏", "✍️",
+  "🎨", "🎵", "📞", "🧹", "🐕", "🌿", "💰", "🧠",
+  "😴", "🚭", "🍬", "💻", "🧺", "🏃", "🚴", "🧼",
+];
+
+const CUSTOM_TYPES: { value: HabitType; label: string; hint: string }[] = [
+  { value: "binary", label: "Yes / No", hint: "Did you do it today?" },
+  { value: "counter", label: "Counter", hint: "Tap + up to a daily target" },
+  { value: "measure", label: "Amount", hint: "Log a number with a unit" },
+];
 
 /** Quick-select chips for measure habits, keyed by unit. */
 const MEASURE_PRESETS: Record<string, number[]> = {
@@ -372,7 +670,7 @@ function calculateCompletionScore(
   if (activeHabitIds.length === 0) return 0;
   let total = 0;
   for (const habitId of activeHabitIds) {
-    const habit = HABIT_LIBRARY.find((h) => h.id === habitId);
+    const habit = findHabit(habitId);
     if (!habit) continue;
     if (habit.type === "counter") {
       const value = log.counters?.[habitId] || 0;
@@ -387,10 +685,11 @@ function calculateCompletionScore(
   return total / activeHabitIds.length;
 }
 
-function getCompletionColor(score: number): string {
-  // Keep completion meaningful, but use soft pastel fills instead of saturated status colors.
+function getCompletionFillColor(score: number): string {
+  // Soft pastel fill (red → green) for the week-strip bars — a touch deeper
+  // than the old full-pill tint so a partial fill reads at a glance.
   const hue = Math.round(Math.max(0, Math.min(1, score)) * 120);
-  return `hsl(${hue}, 60%, 92%)`;
+  return `hsl(${hue}, 55%, 78%)`;
 }
 
 export default function JournalScreen() {
@@ -477,6 +776,15 @@ export default function JournalScreen() {
     const plan = await loadPlan();
     setNutritionTargets(plan?.nutrition ?? null);
 
+    // Load the full library (built-ins + customs) first so completion
+    // scores below resolve custom habits too.
+    try {
+      const full = await refreshHabitLibrary();
+      setCustomHabits(full.filter((h) => isCustomHabitId(h.id)));
+    } catch {
+      setCustomHabits([]);
+    }
+
     // Load active habits
     let ids = await getActiveHabitIds();
     // Seed defaults on first launch so the journal isn't empty
@@ -486,48 +794,18 @@ export default function JournalScreen() {
     }
     setActiveHabitIds(ids);
 
-    // Auto-fill health-backed measure habits (run distance, weight) when the
-    // value hasn't been logged for the selected day yet.
-    const auto: Record<string, boolean> = {};
+    // Auto-fill habits from logged data (meals, workouts, sleep, weight,
+    // hydration). Only blank or still-auto values are touched, so anything
+    // the user entered by hand wins; habits with no source data stay blank.
     try {
-      const needsRun = ids.includes("run_km") && !(dayLog.counters["run_km"] > 0);
-      const needsWeight = ids.includes("weight_kg") && !(dayLog.counters["weight_kg"] > 0);
-      const [workouts, weightHistory] = await Promise.all([
-        needsRun ? HealthService.getWorkouts(7) : Promise.resolve([]),
-        needsWeight ? HealthService.getMetricHistory("weight", 30) : Promise.resolve([]),
-      ]);
-      if (needsRun) {
-        const target = new Date(selectedKey + "T00:00:00");
-        const totalMeters = workouts
-          .filter((w) => {
-            const d = new Date(w.startTime);
-            return (
-              d.getFullYear() === target.getFullYear() &&
-              d.getMonth() === target.getMonth() &&
-              d.getDate() === target.getDate()
-            );
-          })
-          .reduce((sum, w) => sum + (w.distance ?? 0), 0);
-        if (totalMeters > 0) {
-          dayLog.counters["run_km"] = Math.round((totalMeters / 1000) * 10) / 10;
-          auto["run_km"] = true;
-        }
-      }
-      if (needsWeight) {
-        const sample = weightHistory.find((s) => s.date === selectedKey);
-        if (sample && sample.value > 0) {
-          dayLog.counters["weight_kg"] = Math.round(sample.value * 10) / 10;
-          auto["weight_kg"] = true;
-        }
-      }
+      const { log: filled, auto } = await applyHabitAutofill(selectedKey, dayLog);
+      setLog({ ...filled });
+      setAutoFilled(auto);
     } catch {
-      // Health fill is best-effort; never block the journal on it.
-    }
-    if (Object.keys(auto).length > 0) {
-      await saveHabitLog(dayLog);
+      // Autofill is best-effort; never block the journal on it.
       setLog({ ...dayLog });
+      setAutoFilled({});
     }
-    setAutoFilled(auto);
 
     // Compute habit completion score for each calendar day
     const scores: Record<string, number> = {};
@@ -569,11 +847,25 @@ export default function JournalScreen() {
     }
     await saveHabitLog(updated);
     setLog({ ...updated });
+    // A hand-entered value stops being "auto".
+    setAutoFilled((prev) => {
+      if (!prev[habitId]) return prev;
+      const next = { ...prev };
+      delete next[habitId];
+      return next;
+    });
   };
 
   const handleCounter = async (habitId: string, nextValue: number) => {
     const updated = await setHabitCounter(selectedKey, habitId, nextValue);
     setLog({ ...updated });
+    // A hand-entered value stops being "auto".
+    setAutoFilled((prev) => {
+      if (!prev[habitId]) return prev;
+      const next = { ...prev };
+      delete next[habitId];
+      return next;
+    });
   };
 
   /** Converts a stored measure value to the display unit preference. */
@@ -587,6 +879,9 @@ export default function JournalScreen() {
     }
     if (habit.id === "run_km" && distanceUnit === "mi") {
       return { value: (count / 1.609344).toFixed(1), unit: "mi" };
+    }
+    if (habit.id === "sleep_hours") {
+      return { value: formatSleepDuration(count), unit: "" };
     }
     return { value: count.toFixed(habit.decimals ?? 0), unit: habit.unit };
   };
@@ -608,8 +903,27 @@ export default function JournalScreen() {
           : value;
     const rounded = Math.round(stored * factor) / factor;
     const updated = await setHabitCounter(selectedKey, measureHabit.id, rounded);
+    // A fresh weigh-in keeps the onboarding profile current so calorie and
+    // protein targets stay personalized. Past-day edits don't touch it.
+    if (measureHabit.id === "weight_kg" && selectedKey === todayKey) {
+      try {
+        await patchHealthProfile({ weightKg: Math.round(rounded * 10) / 10 });
+      } catch (e) {
+        console.warn("[Journal] profile weight sync failed:", e);
+      }
+    }
     setLog({ ...updated });
     setMeasureHabit(null);
+    // A hand-entered value stops being "auto".
+    if (measureHabit) {
+      const editedId = measureHabit.id;
+      setAutoFilled((prev) => {
+        if (!prev[editedId]) return prev;
+        const next = { ...prev };
+        delete next[editedId];
+        return next;
+      });
+    }
   };
 
   const openMacroEditor = () => {
@@ -672,6 +986,26 @@ export default function JournalScreen() {
 
   const handleAmountSave = async (value: number) => {
     const updated = await updateHabitValue(selectedKey, amountModal.key, value);
+    // The water counter mirrors hydration (cups ≈ glasses) until the user
+    // sets it by hand.
+    if (amountModal.key === "hydration" && activeHabitIds.includes("water_goal")) {
+      const current = updated.counters["water_goal"] ?? 0;
+      if (current === 0 || autoFilled["water_goal"]) {
+        if (value > 0) {
+          updated.counters["water_goal"] = Math.round(value);
+          await saveHabitLog(updated);
+          setAutoFilled((prev) => ({ ...prev, water_goal: true }));
+        } else if (autoFilled["water_goal"] && current !== 0) {
+          delete updated.counters["water_goal"];
+          await saveHabitLog(updated);
+          setAutoFilled((prev) => {
+            const next = { ...prev };
+            delete next["water_goal"];
+            return next;
+          });
+        }
+      }
+    }
     setLog({ ...updated });
   };
 
@@ -696,24 +1030,37 @@ export default function JournalScreen() {
     return "";
   };
 
+  // User-created habits, merged under the built-in library.
+  const [customHabits, setCustomHabits] = useState<LibraryHabit[]>([]);
+  const library = useMemo(
+    () => [...HABIT_LIBRARY, ...customHabits],
+    [customHabits]
+  );
+
   // Build active habits list from library
   const activeHabits = useMemo(() => {
     return activeHabitIds
-      .map((id) => HABIT_LIBRARY.find((h) => h.id === id))
+      .map((id) => library.find((h) => h.id === id))
       .filter(Boolean) as LibraryHabit[];
-  }, [activeHabitIds]);
+  }, [activeHabitIds, library]);
 
   const daytimeHabits = activeHabits.filter((h) => h.category === "daytime");
   const nighttimeHabits = activeHabits.filter((h) => h.category === "nighttime");
 
-  // Search-filtered library for the edit modal
+  // Search-filtered library for the edit modal (customs first — they're yours)
   const filteredLibrary = useMemo(() => {
     const q = habitSearch.toLowerCase().trim();
-    if (!q) return HABIT_LIBRARY;
-    return HABIT_LIBRARY.filter(
-      (h) => h.label.toLowerCase().includes(q) || h.id.toLowerCase().includes(q)
-    );
-  }, [habitSearch]);
+    const base = q
+      ? library.filter(
+          (h) => h.label.toLowerCase().includes(q) || h.id.toLowerCase().includes(q)
+        )
+      : library;
+    return [...base].sort((a, b) => {
+      const aCustom = isCustomHabitId(a.id) ? 0 : 1;
+      const bCustom = isCustomHabitId(b.id) ? 0 : 1;
+      return aCustom - bCustom;
+    });
+  }, [habitSearch, library]);
 
   // Handle adding a habit
   const handleAddHabit = async (id: string) => {
@@ -725,6 +1072,66 @@ export default function JournalScreen() {
   const handleRemoveHabit = async (id: string) => {
     const updated = await removeActiveHabit(id);
     setActiveHabitIds(updated);
+  };
+
+  // ── Custom habits ──────────────────────────────────────────
+  const [createVisible, setCreateVisible] = useState(false);
+  const [customLabel, setCustomLabel] = useState("");
+  const [customEmoji, setCustomEmoji] = useState("⭐");
+  const [customType, setCustomType] = useState<HabitType>("binary");
+  const [customTarget, setCustomTarget] = useState(4);
+  const [customUnit, setCustomUnit] = useState("");
+  const [customCategory, setCustomCategory] = useState<"daytime" | "nighttime">("daytime");
+  const [customError, setCustomError] = useState<string | null>(null);
+  const [customSaving, setCustomSaving] = useState(false);
+
+  const openCreateHabit = () => {
+    setCustomLabel("");
+    setCustomEmoji("⭐");
+    setCustomType("binary");
+    setCustomTarget(4);
+    setCustomUnit("");
+    setCustomCategory("daytime");
+    setCustomError(null);
+    setCreateVisible(true);
+  };
+
+  const refreshCustomState = async () => {
+    try {
+      const full = await refreshHabitLibrary();
+      setCustomHabits(full.filter((h) => isCustomHabitId(h.id)));
+    } catch {
+      // Keep whatever customs are already in state.
+    }
+    setActiveHabitIds(await getActiveHabitIds());
+  };
+
+  const handleCreateHabit = async () => {
+    if (customSaving) return;
+    setCustomSaving(true);
+    setCustomError(null);
+    try {
+      const input: CustomHabitInput = {
+        label: customLabel.trim(),
+        emoji: customEmoji,
+        type: customType,
+        category: customCategory,
+        target: customType === "counter" ? customTarget : undefined,
+        unit: customType === "measure" ? customUnit.trim() : undefined,
+      };
+      await createCustomHabit(input);
+      await refreshCustomState();
+      setCreateVisible(false);
+    } catch (e) {
+      setCustomError(e instanceof Error ? e.message : "Could not create that habit.");
+    } finally {
+      setCustomSaving(false);
+    }
+  };
+
+  const handleDeleteCustomHabit = async (id: string) => {
+    await deleteCustomHabit(id);
+    await refreshCustomState();
   };
 
   // Open edit modal + reset search
@@ -795,14 +1202,9 @@ export default function JournalScreen() {
 
   return (
     <View style={styles.container}>
+          <GradientWash color={theme.colors.info} />
       {/* Header buttons */}
       <View style={styles.headerButtons}>
-        <AnimatedPress onPress={() => router.push("/journal/data")}>
-          <View style={styles.insightsButton}>
-            <MaterialCommunityIcons name="chart-box-outline" size={16} color={theme.colors.ink} />
-            <Text style={styles.insightsButtonText}>Data</Text>
-          </View>
-        </AnimatedPress>
         <AnimatedPress onPress={openBriefSettings}>
           <View style={styles.moreButton}>
             <MaterialCommunityIcons name="bell-outline" size={19} color={theme.colors.ink} />
@@ -812,6 +1214,14 @@ export default function JournalScreen() {
 
       {/* Title */}
       <View style={styles.header}>
+        {/* The opaque header background hides scrolled content, but it also
+            covered the top of the background wash — leaving a hard edge at the
+            header's bottom. Re-paint the same wash clipped to the header so
+            the gradient runs continuously from the very top, like the other
+            tabs. */}
+        <View style={styles.headerWashClip} pointerEvents="none">
+      <GradientWash color={theme.colors.info} />
+        </View>
         <Text style={styles.headerTitle}>Journal</Text>
         <Text style={styles.headerMonth}>{monthLabel}</Text>
       </View>
@@ -828,48 +1238,32 @@ export default function JournalScreen() {
         <View style={styles.calendarStrip}>
           {weekDays.map((date) => {
             const key = formatDateKey(date);
-            const isSelected = key === selectedKey;
             const isToday =
               date.getFullYear() === today.getFullYear() &&
               date.getMonth() === today.getMonth() &&
               date.getDate() === today.getDate();
             const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
             const isFuture = date.getTime() > todayStart.getTime();
-            const score = dayScores[key] ?? 0;
-            const pillColor = isFuture ? theme.colors.surfaceElevated : getCompletionColor(score);
-            const textColor = isFuture ? theme.colors.muted : theme.colors.ink;
+            // The selected day reads from the live log so its bar fills as
+            // habits are checked off; other days use the cached scores.
+            const score =
+              key === selectedKey && log && activeHabitIds.length > 0
+                ? calculateCompletionScore(log, activeHabitIds)
+                : dayScores[key] ?? 0;
 
             return (
-              <AnimatedPress
+              <DayCell
                 key={key}
+                label={SHORT_DAYS[date.getDay()]}
+                dateNum={date.getDate()}
+                score={score}
+                isFuture={isFuture}
+                isSelected={key === selectedKey}
+                isToday={isToday}
                 onPress={() => {
                   if (!isFuture) setSelectedKey(key);
                 }}
-                disabled={isFuture}
-              >
-                <View
-                  style={[
-                    styles.calendarRing,
-                    isSelected && styles.calendarRingSelected,
-                    isToday && styles.calendarRingToday,
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.calendarPill,
-                      { backgroundColor: pillColor },
-                      isFuture && styles.calendarPillFuture,
-                    ]}
-                  >
-                    <Text style={[styles.calendarDayName, { color: textColor }]}>
-                      {SHORT_DAYS[date.getDay()]}
-                    </Text>
-                    <Text style={[styles.calendarDate, { color: textColor }]}>
-                      {date.getDate()}
-                    </Text>
-                  </View>
-                </View>
-              </AnimatedPress>
+              />
             );
           })}
         </View>
@@ -1059,6 +1453,7 @@ export default function JournalScreen() {
         emoji={amountModal.emoji}
         unit={amountModal.unit}
         initialValue={amountModal.initialValue}
+        hideDate
         onSave={handleAmountSave}
         onClose={() => setAmountModal((prev) => ({ ...prev, visible: false }))}
       />
@@ -1094,6 +1489,7 @@ export default function JournalScreen() {
             : []
         }
         onSave={handleMeasureHabitSave}
+        hideDate
         onClose={() => setMeasureHabit(null)}
       />
 
@@ -1382,6 +1778,26 @@ export default function JournalScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
+            {/* Create your own habit */}
+            <TouchableOpacity
+              style={styles.createHabitBtn}
+              onPress={openCreateHabit}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Create a custom habit"
+            >
+              <View style={styles.createHabitIcon}>
+                <MaterialCommunityIcons name="plus" size={18} color="#FFFFFF" />
+              </View>
+              <View style={styles.createHabitCopy}>
+                <Text style={styles.createHabitTitle}>Create your own habit</Text>
+                <Text style={styles.createHabitSub}>
+                  Yes/No, counter, or amount · {customHabits.length}/{MAX_CUSTOM_HABITS} used
+                </Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={18} color={theme.colors.muted} />
+            </TouchableOpacity>
+
             {/* Active habits — with delete */}
             {!habitSearch && activeHabits.length > 0 && (
               <>
@@ -1421,39 +1837,230 @@ export default function JournalScreen() {
               ) : (
                 filteredLibrary.map((habit, i) => {
                   const isActive = activeHabitIds.includes(habit.id);
+                  const isCustom = isCustomHabitId(habit.id);
                   return (
                     <View key={habit.id}>
                       {i > 0 && <View style={styles.entryDivider} />}
                       <View style={styles.modalHabitRow}>
                         <View style={styles.modalHabitInfo}>
                           <Text style={styles.modalHabitEmoji}>{habit.emoji}</Text>
-                          <View>
-                            <Text style={styles.modalHabitLabel}>{habit.label}</Text>
+                          <View style={styles.modalHabitTextCol}>
+                            <View style={styles.modalHabitTitleRow}>
+                              <Text style={styles.modalHabitLabel} numberOfLines={1}>
+                                {habit.label}
+                              </Text>
+                              {isCustom && (
+                                <View style={styles.customBadge}>
+                                  <Text style={styles.customBadgeText}>yours</Text>
+                                </View>
+                              )}
+                            </View>
                             <Text style={styles.modalHabitCategory}>
                               {habit.category === "daytime" ? "Daytime" : "Nighttime"}
+                              {habit.type === "counter" && habit.target
+                                ? ` · target ${habit.target}`
+                                : habit.type === "measure" && habit.unit
+                                  ? ` · ${habit.unit}`
+                                  : ""}
                             </Text>
                           </View>
                         </View>
-                        {isActive ? (
-                          <View style={styles.modalAddedBadge}>
-                            <MaterialCommunityIcons name="check" size={14} color={theme.colors.success} />
-                            <Text style={styles.modalAddedText}>Added</Text>
-                          </View>
-                        ) : (
-                          <TouchableOpacity
-                            style={styles.modalAddBtn}
-                            onPress={() => handleAddHabit(habit.id)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          >
-                            <MaterialCommunityIcons name="plus-circle-outline" size={20} color={theme.colors.primary} />
-                          </TouchableOpacity>
-                        )}
+                        <View style={styles.modalHabitActions}>
+                          {isCustom && (
+                            <TouchableOpacity
+                              style={styles.modalCustomDeleteBtn}
+                              onPress={() => handleDeleteCustomHabit(habit.id)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              accessibilityLabel={`Delete ${habit.label} forever`}
+                            >
+                              <MaterialCommunityIcons name="trash-can-outline" size={17} color={theme.colors.danger} />
+                            </TouchableOpacity>
+                          )}
+                          {isActive ? (
+                            <View style={styles.modalAddedBadge}>
+                              <MaterialCommunityIcons name="check" size={14} color={theme.colors.success} />
+                              <Text style={styles.modalAddedText}>Added</Text>
+                            </View>
+                          ) : (
+                            <TouchableOpacity
+                              style={styles.modalAddBtn}
+                              onPress={() => handleAddHabit(habit.id)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                              <MaterialCommunityIcons name="plus-circle-outline" size={20} color={theme.colors.primary} />
+                            </TouchableOpacity>
+                          )}
+                        </View>
                       </View>
                     </View>
                   );
                 })
               )}
             </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* ── Create Custom Habit Modal ──────────────────────── */}
+      <Modal
+        visible={createVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setCreateVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              onPress={() => setCreateVisible(false)}
+              style={styles.modalCloseBtn}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <MaterialCommunityIcons name="close" size={22} color={theme.colors.ink} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>New habit</Text>
+            <View style={{ width: 36 }} />
+          </View>
+
+          <ScrollView
+            style={styles.modalScroll}
+            contentContainerStyle={styles.modalScrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Text style={styles.modalSectionTitle}>Name</Text>
+            <View style={styles.createInputWrap}>
+              <TextInput
+                style={styles.createInput}
+                placeholder="e.g. Read 10 pages"
+                placeholderTextColor={theme.colors.muted}
+                value={customLabel}
+                onChangeText={(t) => setCustomLabel(t.slice(0, 40))}
+                maxLength={40}
+                returnKeyType="done"
+              />
+            </View>
+
+            <Text style={styles.modalSectionTitle}>Icon</Text>
+            <View style={styles.emojiGrid}>
+              {CUSTOM_EMOJIS.map((emoji) => {
+                const selected = customEmoji === emoji;
+                return (
+                  <TouchableOpacity
+                    key={emoji}
+                    style={[styles.emojiOption, selected && styles.emojiOptionSelected]}
+                    onPress={() => setCustomEmoji(emoji)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.emojiOptionText}>{emoji}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={styles.modalSectionTitle}>Type</Text>
+            <View style={styles.createTypeList}>
+              {CUSTOM_TYPES.map((t) => {
+                const selected = customType === t.value;
+                return (
+                  <TouchableOpacity
+                    key={t.value}
+                    style={[styles.createTypeRow, selected && styles.createTypeRowSelected]}
+                    onPress={() => setCustomType(t.value)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.createTypeRadio, selected && styles.createTypeRadioSelected]}>
+                      {selected && (
+                        <MaterialCommunityIcons name="check" size={13} color="#FFFFFF" />
+                      )}
+                    </View>
+                    <View style={styles.createTypeCopy}>
+                      <Text style={styles.createTypeLabel}>{t.label}</Text>
+                      <Text style={styles.createTypeHint}>{t.hint}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {customType === "counter" && (
+              <>
+                <Text style={styles.modalSectionTitle}>Daily target</Text>
+                <View style={styles.createTargetRow}>
+                  <TouchableOpacity
+                    style={styles.createStepBtn}
+                    onPress={() => setCustomTarget((v) => Math.max(1, v - 1))}
+                    activeOpacity={0.7}
+                    accessibilityLabel="Decrease target"
+                  >
+                    <MaterialCommunityIcons name="minus" size={18} color={theme.colors.ink} />
+                  </TouchableOpacity>
+                  <Text style={styles.createTargetValue}>{customTarget}</Text>
+                  <TouchableOpacity
+                    style={styles.createStepBtn}
+                    onPress={() => setCustomTarget((v) => Math.min(99, v + 1))}
+                    activeOpacity={0.7}
+                    accessibilityLabel="Increase target"
+                  >
+                    <MaterialCommunityIcons name="plus" size={18} color={theme.colors.ink} />
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {customType === "measure" && (
+              <>
+                <Text style={styles.modalSectionTitle}>Unit</Text>
+                <View style={styles.createInputWrap}>
+                  <TextInput
+                    style={styles.createInput}
+                    placeholder="e.g. min, pages, km"
+                    placeholderTextColor={theme.colors.muted}
+                    value={customUnit}
+                    onChangeText={(t) => setCustomUnit(t.slice(0, 8))}
+                    maxLength={8}
+                    returnKeyType="done"
+                  />
+                </View>
+              </>
+            )}
+
+            <Text style={styles.modalSectionTitle}>When</Text>
+            <View style={styles.createWhenRow}>
+              {(["daytime", "nighttime"] as const).map((c) => {
+                const selected = customCategory === c;
+                return (
+                  <TouchableOpacity
+                    key={c}
+                    style={[styles.createWhenChip, selected && styles.createWhenChipSelected]}
+                    onPress={() => setCustomCategory(c)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.createWhenText, selected && styles.createWhenTextSelected]}>
+                      {c === "daytime" ? "Daytime" : "Nighttime"}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {customError && <Text style={styles.createError}>{customError}</Text>}
+
+            <TouchableOpacity
+              style={[
+                styles.createSaveBtn,
+                (!customLabel.trim() || customSaving) && styles.createSaveBtnDisabled,
+              ]}
+              onPress={handleCreateHabit}
+              disabled={!customLabel.trim() || customSaving}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Save custom habit"
+            >
+              <MaterialCommunityIcons name="check" size={18} color={theme.colors["on-primary"]} />
+              <Text style={styles.createSaveBtnText}>
+                {customSaving ? "Saving…" : "Add to my goals"}
+              </Text>
+            </TouchableOpacity>
           </ScrollView>
         </View>
       </Modal>
@@ -1475,23 +2082,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: theme.spacing.sm,
   },
-  insightsButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.xs,
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.pill,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-  },
-  insightsButtonText: {
-    ...theme.typography.bodyMd,
-    color: theme.colors.ink,
-    fontFamily: "Nunito_600SemiBold",
-    fontWeight: "600",
-  },
   moreButton: {
     width: 32,
     height: 32,
@@ -1512,6 +2102,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.xl,
     backgroundColor: theme.colors.bg,
     paddingBottom: theme.spacing.xs,
+  },
+  headerWashClip: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: "hidden",
   },
   headerTitle: {
     ...theme.typography.displayMd,
@@ -1558,13 +2152,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     width: 44,
-    height: 60,
+    height: CALENDAR_PILL_HEIGHT,
     borderRadius: 24,
     gap: 3,
     backgroundColor: theme.colors.surfaceElevated,
+    // Clip the completion fill to the pill's rounded corners.
+    overflow: "hidden",
   },
   calendarPillFuture: {
     opacity: 0.7,
+  },
+  calendarPillFill: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
   },
   calendarDayName: {
     fontSize: 10,
@@ -1615,22 +2219,26 @@ const styles = StyleSheet.create({
   entriesCard: {
     backgroundColor: theme.colors.card,
     borderRadius: theme.radii.xl,
-    borderWidth: 0,
-    borderColor: "transparent",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     paddingHorizontal: theme.spacing.xl,
     marginBottom: theme.spacing.md,
-    ...theme.shadows.module,
+    ...theme.shadows.card,
   },
   entryRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingVertical: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
   entryLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing.md,
+    flex: 1,
+    minWidth: 0,
+    paddingRight: theme.spacing.xs,
   },
   entryEmoji: {
     fontSize: 18,
@@ -1638,81 +2246,111 @@ const styles = StyleSheet.create({
   entryLabel: {
     ...theme.typography.bodyMd,
     color: theme.colors.ink,
+    flexShrink: 1,
   },
   entryDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: theme.colors.border,
     marginLeft: theme.spacing.xl,
   },
-  triState: {
+  binaryRow: {
     flexDirection: "row",
-    backgroundColor: theme.colors.surfaceElevated,
-    borderRadius: theme.radii.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    overflow: "hidden",
+    alignItems: "center",
+    gap: 8,
   },
-  triStateSmall: {
-    borderRadius: theme.radii.sm,
-  },
-  triOption: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    minWidth: 40,
-    minHeight: 36,
+  binaryBtn: {
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: theme.colors.surfaceElevated,
+    borderRadius: theme.radii.pill,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
   },
-  triOptionActive: {
-    backgroundColor: theme.colors.border,
+  binaryNoActive: {
+    backgroundColor: `${theme.colors.danger}14`,
+    borderColor: `${theme.colors.danger}55`,
+    ...theme.shadows.cardSoft,
   },
-  triDivider: {
-    width: 1,
-    backgroundColor: theme.colors.border,
+  binaryYesActive: {
+    backgroundColor: `${theme.colors.success}14`,
+    borderColor: `${theme.colors.success}55`,
+    ...theme.shadows.cardSoft,
   },
-  triText: {
-    ...theme.typography.bodyMd,
-    color: theme.colors.muted,
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  triTextActive: {
-    color: theme.colors.ink,
-  },
-  counterControl: {
+  stepperRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: theme.colors.surfaceElevated,
-    borderRadius: theme.radii.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    overflow: "hidden",
+    gap: 6,
+    flexShrink: 0,
   },
-  counterButton: {
+  stepperBtn: {
     width: 36,
     height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: theme.colors.card,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    flexShrink: 0,
   },
-  counterValueWrap: {
-    minWidth: 40,
-    paddingHorizontal: theme.spacing.sm,
+  stepperBtnDisabled: {
+    opacity: 0.4,
+  },
+  stepperPlus: {
+    backgroundColor: theme.colors.ink,
+    borderColor: theme.colors.ink,
+    ...theme.shadows.cardSoft,
+  },
+  stepperPlusDone: {
+    backgroundColor: theme.colors.success,
+    borderColor: theme.colors.success,
+  },
+  stepperTrack: {
+    width: TRACK_WIDTH,
+    height: 36,
+    paddingHorizontal: 8,
     flexDirection: "row",
-    alignItems: "baseline",
+    alignItems: "center",
     justifyContent: "center",
+    gap: 4,
+    backgroundColor: theme.colors.surfaceElevated,
+    borderRadius: theme.radii.pill,
+    borderWidth: TRACK_BORDER,
+    borderColor: theme.colors.border,
+    overflow: "hidden",
+    flexShrink: 0,
   },
-  counterValue: {
+  stepperFill: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: theme.radii.pill,
+  },
+  stepperText: {
     ...theme.typography.bodyMd,
-    fontFamily: "Nunito_600SemiBold",
-    fontWeight: "600",
-    color: theme.colors.ink,
-    minWidth: 20,
     textAlign: "center",
+    includeFontPadding: false,
   },
-  counterTarget: {
-    ...theme.typography.legal,
+  stepperValue: {
+    fontFamily: "Nunito_700Bold",
+    fontWeight: "700",
+    fontSize: 16,
+    color: theme.colors.ink,
+  },
+  stepperTarget: {
+    fontFamily: "Nunito_500Medium",
+    fontWeight: "500",
+    fontSize: 12,
     color: theme.colors.muted,
-    marginLeft: 1,
+  },
+  stepperDoneDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: `${theme.colors.success}18`,
   },
   measureButton: {
     flexDirection: "row",
@@ -1749,6 +2387,12 @@ const styles = StyleSheet.create({
     color: theme.colors.info,
     fontFamily: "Nunito_600SemiBold",
     fontWeight: "600",
+  },
+  autoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexShrink: 0,
   },
   arrowButton: {
     flexDirection: "row",
@@ -1843,10 +2487,10 @@ const styles = StyleSheet.create({
   mealsCard: {
     backgroundColor: theme.colors.card,
     borderRadius: theme.radii.xl,
-    borderWidth: 0,
-    borderColor: "transparent",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     paddingHorizontal: theme.spacing.xl,
-    ...theme.shadows.module,
+    ...theme.shadows.card,
   },
   mealRow: {
     flexDirection: "row",
@@ -2035,6 +2679,239 @@ const styles = StyleSheet.create({
   modalEmptyText: {
     ...theme.typography.caption,
     color: theme.colors.muted,
+  },
+  modalHabitTextCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  modalHabitTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  customBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: theme.radii.pill,
+    backgroundColor: `${theme.colors.lilac}15`,
+    borderWidth: 1,
+    borderColor: `${theme.colors.lilac}40`,
+    flexShrink: 0,
+  },
+  customBadgeText: {
+    ...theme.typography.legal,
+    fontSize: 9,
+    color: theme.colors.lilac,
+    fontFamily: "Nunito_700Bold",
+    fontWeight: "700",
+  },
+  modalHabitActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexShrink: 0,
+  },
+  modalCustomDeleteBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: `${theme.colors.danger}10`,
+  },
+  // ── Create custom habit ──────────────────────────────
+  createHabitBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.md,
+    backgroundColor: theme.colors.ink,
+    borderRadius: theme.radii.lg,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
+    ...theme.shadows.card,
+  },
+  createHabitIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#FFFFFF22",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  createHabitCopy: {
+    flex: 1,
+  },
+  createHabitTitle: {
+    ...theme.typography.labelMd,
+    color: "#FFFFFF",
+  },
+  createHabitSub: {
+    ...theme.typography.legal,
+    color: "#FFFFFF99",
+    marginTop: 1,
+  },
+  createInputWrap: {
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radii.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+    ...theme.shadows.cardSoft,
+  },
+  createInput: {
+    ...theme.typography.bodyMd,
+    color: theme.colors.ink,
+    paddingVertical: theme.spacing.md,
+  },
+  emojiGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radii.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  emojiOption: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surfaceElevated,
+    borderWidth: 1.5,
+    borderColor: "transparent",
+  },
+  emojiOptionSelected: {
+    borderColor: theme.colors.primary,
+    backgroundColor: `${theme.colors.primary}10`,
+  },
+  emojiOptionText: {
+    fontSize: 20,
+  },
+  createTypeList: {
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  createTypeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.md,
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radii.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.md,
+  },
+  createTypeRowSelected: {
+    borderColor: theme.colors.primary,
+    backgroundColor: `${theme.colors.primary}06`,
+  },
+  createTypeRadio: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  createTypeRadioSelected: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  createTypeCopy: {
+    flex: 1,
+  },
+  createTypeLabel: {
+    ...theme.typography.labelMd,
+    color: theme.colors.ink,
+  },
+  createTypeHint: {
+    ...theme.typography.legal,
+    color: theme.colors.muted,
+    marginTop: 1,
+  },
+  createTargetRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing.lg,
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radii.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  createStepBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  createTargetValue: {
+    ...theme.typography.displayMd,
+    color: theme.colors.ink,
+    minWidth: 60,
+    textAlign: "center",
+  },
+  createWhenRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  createWhenChip: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.radii.md,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  createWhenChipSelected: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  createWhenText: {
+    ...theme.typography.labelMd,
+    color: theme.colors.body,
+  },
+  createWhenTextSelected: {
+    color: theme.colors["on-primary"],
+  },
+  createError: {
+    ...theme.typography.caption,
+    color: theme.colors.danger,
+    textAlign: "center",
+    marginBottom: theme.spacing.sm,
+  },
+  createSaveBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.ink,
+    borderRadius: theme.radii.md,
+    paddingVertical: theme.spacing.md,
+    marginTop: theme.spacing.sm,
+    ...theme.shadows.card,
+  },
+  createSaveBtnDisabled: {
+    opacity: 0.45,
+  },
+  createSaveBtnText: {
+    ...theme.typography.labelMd,
+    color: "#FFFFFF",
   },
   // ── Morning Brief Modal ────────────────────────────────
   briefContent: {

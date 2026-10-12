@@ -31,8 +31,33 @@ interface AmountModalProps {
   initialValue?: number;
   /** Quick-select chips; pass [] to hide them entirely. Defaults to unit-based presets. */
   presets?: number[];
-  onSave: (value: number) => void;
+  /** YYYY-MM-DD the entry should be logged to. Defaults to today. */
+  initialDate?: string;
+  /** Hide the date stepper (for callers that save to their own selected day). */
+  hideDate?: boolean;
+  onSave: (value: number, date: string) => void;
   onClose: () => void;
+}
+
+function toDateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function shiftDateKey(key: string, deltaDays: number): string {
+  const d = new Date(key + "T12:00:00");
+  if (Number.isNaN(d.getTime())) return toDateKey(new Date());
+  d.setDate(d.getDate() + deltaDays);
+  return toDateKey(d);
+}
+
+function formatDateKeyShort(key: string): string {
+  const d = new Date(key + "T12:00:00");
+  if (Number.isNaN(d.getTime())) return key;
+  const today = toDateKey(new Date());
+  if (key === today) return "Today";
+  const yesterday = shiftDateKey(today, -1);
+  if (key === yesterday) return "Yesterday";
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -45,12 +70,15 @@ export default function AmountModal({
   placeholder,
   initialValue,
   presets,
+  initialDate,
+  hideDate,
   onSave,
   onClose,
 }: AmountModalProps) {
   const [value, setValue] = useState(
     initialValue && initialValue > 0 ? initialValue.toString() : ""
   );
+  const [date, setDate] = useState<string>(() => initialDate ?? toDateKey(new Date()));
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const inputRef = useRef<TextInput>(null);
@@ -60,6 +88,7 @@ export default function AmountModal({
       setValue(
         initialValue && initialValue > 0 ? initialValue.toString() : ""
       );
+      setDate(initialDate ?? toDateKey(new Date()));
       Animated.parallel([
         Animated.spring(slideAnim, {
           toValue: 0,
@@ -75,7 +104,8 @@ export default function AmountModal({
       ]).start();
 
       // Auto-focus after animation
-      setTimeout(() => inputRef.current?.focus(), 300);
+      const t = setTimeout(() => inputRef.current?.focus(), 300);
+      return () => clearTimeout(t);
     } else {
       Animated.parallel([
         Animated.timing(slideAnim, {
@@ -90,12 +120,12 @@ export default function AmountModal({
         }),
       ]).start();
     }
-  }, [visible]);
+  }, [visible, initialDate]);
 
   const handleSave = () => {
     const num = parseFloat(value);
     if (!isNaN(num) && num >= 0) {
-      onSave(num);
+      onSave(num, date);
     }
     onClose();
   };
@@ -165,6 +195,48 @@ export default function AmountModal({
             />
             <Text style={styles.unit}>{unit}</Text>
           </View>
+          {!hideDate && (
+          <View style={styles.dateTimeRow}>
+            <TouchableOpacity
+              style={styles.dateStepBtn}
+              onPress={() => setDate((d) => shiftDateKey(d, -1))}
+              activeOpacity={0.7}
+              accessibilityLabel="Log to previous day"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <MaterialCommunityIcons name="chevron-left" size={20} color={theme.colors.ink} />
+            </TouchableOpacity>
+            <View style={styles.dateCenter}>
+              <Text style={styles.dateTimeLabel}>{formatDateKeyShort(date)}</Text>
+              <Text style={styles.dateTimeSub}>{date}</Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.dateStepBtn,
+                date >= toDateKey(new Date()) && styles.dateStepBtnDisabled,
+              ]}
+              onPress={() => setDate((d) => shiftDateKey(d, 1))}
+              activeOpacity={0.7}
+              accessibilityLabel="Log to next day"
+              disabled={date >= toDateKey(new Date())}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={20}
+                color={date >= toDateKey(new Date()) ? theme.colors.muted : theme.colors.ink}
+              />
+            </TouchableOpacity>
+            {date !== toDateKey(new Date()) ? (
+              <TouchableOpacity
+                style={styles.changeDateButton}
+                onPress={() => setDate(toDateKey(new Date()))}
+              >
+                <Text style={styles.changeDateText}>Today</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+          )}
 
           {/* Quick presets */}
           {quickPresets.length > 0 && (
@@ -324,5 +396,52 @@ const styles = StyleSheet.create({
   saveButtonText: {
     ...theme.typography.labelMd,
     color: theme.colors.card,
+  },
+  dateTimeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.lg,
+  },
+  dateStepBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dateStepBtnDisabled: {
+    opacity: 0.4,
+  },
+  dateCenter: {
+    alignItems: "center",
+    minWidth: 120,
+  },
+  dateTimeLabel: {
+    ...theme.typography.labelMd,
+    color: theme.colors.ink,
+    fontFamily: "Nunito_600SemiBold",
+    fontWeight: "600",
+  },
+  dateTimeSub: {
+    ...theme.typography.legal,
+    color: theme.colors.muted,
+    marginTop: 1,
+  },
+  changeDateButton: {
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
+    borderRadius: theme.radii.pill,
+    backgroundColor: theme.colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  changeDateText: {
+    ...theme.typography.caption,
+    color: theme.colors.primary,
   },
 });

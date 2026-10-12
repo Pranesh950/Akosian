@@ -6,7 +6,7 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -18,10 +18,11 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useGoBack } from "../../src/hooks/useGoBack";
-import { HealthService, HealthData, computeSleepScore } from "../../src/services/health";
+import { HealthService, HealthData, MetricSample, computeSleepScore } from "../../src/services/health";
 import { BandGauge } from "../../src/components/BandGauge";
 import { RefreshButton } from "../../src/components/RefreshButton";
-import { theme, formatFriendlyDate } from "../../src/theme";
+import { theme, formatFriendlyDate, formatSleepDuration } from "../../src/theme";
+import { GradientWash } from "../../src/components/GradientWash";
 import { loadPlan } from "../../src/services/coachPlan";
 
 function fmt(value: number | null | undefined, suffix = ""): string {
@@ -34,14 +35,7 @@ function fmtFloat(value: number | null | undefined, suffix = ""): string {
   return `${value.toFixed(1)}${suffix}`;
 }
 
-function fmtMinutes(hours: number): string {
-  const total = Math.round(hours * 60);
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  if (h <= 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
-}
+const fmtMinutes = formatSleepDuration;
 
 function sleepLabel(score: number): string {
   if (score >= 90) return "Excellent";
@@ -57,12 +51,86 @@ function sleepColor(score: number): string {
   return theme.colors.danger;
 }
 
+// Nights shorter than this are treated as "no recording" (watch off,
+// fragmented sync) rather than a real night — they render as an empty slot.
+const MIN_RECORDED_NIGHT_HOURS = 0.5;
+
+function toDateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Expands sparse sleep history into a full 7-day window ending today. */
+function buildWeekWindow(history: MetricSample[]): MetricSample[] {
+  const byDate = new Map(history.map((h) => [h.date, h.value]));
+  const today = new Date();
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (6 - i));
+    const key = toDateKey(d);
+    return { date: key, value: byDate.get(key) ?? 0 };
+  });
+}
+
 interface RecoveryRowProps {
   label: string;
   value: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   color: string;
   subtext?: string;
+}
+
+function WeeklyBars({ history, goal }: { history: MetricSample[]; goal: number }) {
+  const validValues = history
+    .map((h) => h.value)
+    .filter((v) => v >= MIN_RECORDED_NIGHT_HOURS);
+  const maxVal = Math.max(goal * 1.15, ...validValues, 6);
+  const todayKey = toDateKey(new Date());
+  return (
+    <View style={styles.weeklyWrap}>
+      <View style={styles.weeklyPlot}>
+        <View
+          style={[styles.weeklyGoalLine, { bottom: `${(goal / maxVal) * 100}%` }]}
+        />
+        {history.map((h) => {
+          const isToday = h.date === todayKey;
+          const missing = !(h.value >= MIN_RECORDED_NIGHT_HOURS);
+          const pct = missing ? 0 : (h.value / maxVal) * 100;
+          const met = !missing && h.value >= goal - 0.5;
+          const d = new Date(h.date + "T12:00:00");
+          return (
+            <View key={h.date} style={styles.weeklyCol}>
+              <View style={styles.weeklyBarTrack}>
+                {missing ? (
+                  <View style={styles.weeklyMissing} />
+                ) : (
+                  <View
+                    style={[
+                      styles.weeklyBar,
+                      {
+                        height: `${pct}%`,
+                        backgroundColor: met ? theme.colors.sleep : `${theme.colors.sleep}55`,
+                        borderWidth: isToday ? 1.5 : 0,
+                        borderColor: isToday ? theme.colors.ink : "transparent",
+                      },
+                    ]}
+                  />
+                )}
+              </View>
+              <Text
+                style={[
+                  styles.weeklyDay,
+                  isToday && styles.weeklyDayToday,
+                  missing && styles.weeklyDayMissing,
+                ]}
+              >
+                {d.toLocaleDateString("en-US", { weekday: "narrow" })}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+      <Text style={styles.weeklyGoalCaption}>— {formatSleepDuration(goal)} goal</Text>
+    </View>
+  );
 }
 
 function RecoveryRow({ label, value, icon, color, subtext }: RecoveryRowProps) {
@@ -87,12 +155,17 @@ export default function SleepDetailScreen() {
   const [loaded, setLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [sleepGoal, setSleepGoal] = useState<number | null>(null);
+  const [history, setHistory] = useState<MetricSample[]>([]);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const loadData = useCallback(async () => {
     await HealthService.initialize(false);
-    const d = await HealthService.getTodayData();
+    const [d, hist] = await Promise.all([
+      HealthService.getTodayData(),
+      HealthService.getSleepHistory(7).catch(() => [] as MetricSample[]),
+    ]);
     setData(d);
+    setHistory(hist);
     setLoaded(true);
   }, []);
 
@@ -122,6 +195,12 @@ export default function SleepDetailScreen() {
   const hasSleep = sleepHours > 0;
   const goal = sleepGoal ?? 8;
   const goalPct = goal > 0 ? Math.round((sleepHours / goal) * 100) : 0;
+  // Full 7-day window: unrecorded nights (watch off) render as empty slots.
+  const weekHistory = useMemo(() => buildWeekWindow(history), [history]);
+  const validNights = useMemo(
+    () => weekHistory.filter((h) => h.value >= MIN_RECORDED_NIGHT_HOURS),
+    [weekHistory]
+  );
   const hasStages = !!data?.sleepHasStages;
   // sleepHours already excludes awake time when stages are present, so the
   // asleep base is sleepHours itself; the full night adds awake back on top.
@@ -222,6 +301,7 @@ export default function SleepDetailScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <GradientWash color={theme.colors.sleep} />
       <View style={styles.header}>
         <TouchableOpacity
           onPress={handleBack}
@@ -252,7 +332,7 @@ export default function SleepDetailScreen() {
             <Text style={[styles.heroLabel, { color: hasSleep ? sleepColor(sleepScore) : theme.colors.muted }]}>
               {hasSleep ? sleepLabel(sleepScore) : "No data"}
             </Text>
-            <Text style={styles.heroValue}>{hasSleep ? `${sleepHours.toFixed(1)}h` : "—"}</Text>
+            <Text style={styles.heroValue}>{hasSleep ? formatSleepDuration(sleepHours) : "—"}</Text>
             <Text style={styles.heroSub}>{hasSleep ? "Total sleep" : "Wear a tracker to see sleep data"}</Text>
           </View>
         </Animated.View>
@@ -286,7 +366,7 @@ export default function SleepDetailScreen() {
             <View style={styles.durationMarkers}>
               <Text style={styles.durationMarkerText}>0h</Text>
               <Text style={styles.durationMarkerTarget}>
-                {goal}h goal
+                {formatSleepDuration(goal)} goal
               </Text>
               <Text style={styles.durationMarkerText}>10h</Text>
             </View>
@@ -303,9 +383,65 @@ export default function SleepDetailScreen() {
               />
               <Text style={styles.goalChipText}>
                 {goalPct >= 100
-                  ? `Sleep goal met — ${goalPct}% of ${goal}h`
-                  : `${sleepHours.toFixed(1)}h of ${goal}h goal (${goalPct}%) — ${Math.max(0, goal - sleepHours).toFixed(1)}h to go`}
+                  ? `Sleep goal met — ${goalPct}% of ${formatSleepDuration(goal)}`
+                  : `${formatSleepDuration(sleepHours)} of ${formatSleepDuration(goal)} goal (${goalPct}%) — ${formatSleepDuration(Math.max(0, goal - sleepHours))} to go`}
               </Text>
+            </View>
+            {hasStages && (
+              <View style={styles.qualityRow}>
+                <View style={styles.qualityStat}>
+                  <Text style={styles.qualityValue}>
+                    {Math.round((sleepHours / Math.max(sleepHours + (data?.sleepAwakeHours ?? 0), 0.01)) * 100)}%
+                  </Text>
+                  <Text style={styles.qualityLabel}>Efficiency</Text>
+                </View>
+                <View style={styles.qualityDivider} />
+                <View style={styles.qualityStat}>
+                  <Text style={styles.qualityValue}>
+                    {fmtMinutes((data?.sleepDeepHours ?? 0) + (data?.sleepRemHours ?? 0))}
+                  </Text>
+                  <Text style={styles.qualityLabel}>Deep + REM</Text>
+                </View>
+                <View style={styles.qualityDivider} />
+                <View style={styles.qualityStat}>
+                  <Text style={styles.qualityValue}>{fmtMinutes(sleepHours + (data?.sleepAwakeHours ?? 0))}</Text>
+                  <Text style={styles.qualityLabel}>In bed</Text>
+                </View>
+              </View>
+            )}
+          </Animated.View>
+        )}
+
+        {loaded && (
+          <Animated.View style={[styles.durationCard, { opacity: fadeAnim }]}>
+            <View style={styles.durationHeader}>
+              <MaterialCommunityIcons name="calendar-week" size={20} color={theme.colors.sleep} />
+              <Text style={styles.durationTitle}>Last 7 Nights</Text>
+            </View>
+            <WeeklyBars history={weekHistory} goal={goal} />
+            <View style={styles.weekStatsRow}>
+              <View style={styles.weekStat}>
+                <Text style={styles.weekStatValue}>
+                  {validNights.length > 0
+                    ? formatSleepDuration(validNights.reduce((s, h) => s + h.value, 0) / validNights.length)
+                    : "—"}
+                </Text>
+                <Text style={styles.weekStatLabel}>Average</Text>
+              </View>
+              <View style={styles.weekStat}>
+                <Text style={styles.weekStatValue}>
+                  {validNights.length > 0
+                    ? formatSleepDuration(Math.max(...validNights.map((h) => h.value)))
+                    : "—"}
+                </Text>
+                <Text style={styles.weekStatLabel}>Best</Text>
+              </View>
+              <View style={styles.weekStat}>
+                <Text style={styles.weekStatValue}>
+                  {validNights.filter((h) => h.value >= goal - 0.5).length}/{weekHistory.length}
+                </Text>
+                <Text style={styles.weekStatLabel}>Goal nights</Text>
+              </View>
             </View>
           </Animated.View>
         )}
@@ -316,22 +452,27 @@ export default function SleepDetailScreen() {
               <MaterialCommunityIcons name="chart-timeline-variant" size={20} color={theme.colors.sleep} />
               <Text style={styles.durationTitle}>Sleep Stages</Text>
             </View>
+            <View style={styles.stageStack}>
+              {stageRows.map((row) => {
+                const pct = row.hours > 0 ? (row.hours / stageBase) * 100 : 0;
+                if (pct <= 0) return null;
+                return (
+                  <View
+                    key={row.label}
+                    style={{ width: `${pct}%`, backgroundColor: row.color }}
+                  />
+                );
+              })}
+            </View>
             {stageRows.map((row) => {
               const pct = row.hours > 0 ? (row.hours / stageBase) * 100 : 0;
               return (
                 <View key={row.label} style={styles.stageRow}>
                   <View style={[styles.stageDot, { backgroundColor: row.color }]} />
                   <Text style={styles.stageLabel}>{row.label}</Text>
-                  <View style={styles.stageBarTrack}>
-                    <View
-                      style={[
-                        styles.stageBarFill,
-                        { width: `${Math.min(100, pct)}%`, backgroundColor: row.color },
-                      ]}
-                    />
-                  </View>
+                  <Text style={styles.stagePct}>{pct > 0 ? `${Math.round(pct)}%` : "—"}</Text>
                   <Text style={styles.stageValue}>
-                    {row.hours > 0 ? `${fmtMinutes(row.hours)} · ${Math.round(pct)}%` : "—"}
+                    {row.hours > 0 ? fmtMinutes(row.hours) : "—"}
                   </Text>
                 </View>
               );
@@ -437,7 +578,7 @@ const styles = StyleSheet.create({
   hero: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: theme.colors.card,
+    backgroundColor: `${theme.colors.sleep}10`,
     borderRadius: theme.radii.lg,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -581,6 +722,7 @@ const styles = StyleSheet.create({
   },
   recoveryValue: {
     ...theme.typography.titleMd,
+    fontSize: 18,
     color: theme.colors.ink,
   },
   insightsCard: {
@@ -683,6 +825,126 @@ const styles = StyleSheet.create({
     color: theme.colors.muted,
     minWidth: 78,
     textAlign: "right",
+    marginLeft: "auto",
+  },
+  stageStack: {
+    flexDirection: "row",
+    height: 14,
+    borderRadius: 7,
+    overflow: "hidden",
+    backgroundColor: theme.colors.surfaceElevated,
+    marginBottom: theme.spacing.md,
+  },
+  stagePct: {
+    ...theme.typography.caption,
+    color: theme.colors.body,
+    width: 34,
+    textAlign: "right",
+  },
+  qualityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: theme.spacing.md,
+    paddingTop: theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  qualityStat: {
+    flex: 1,
+    alignItems: "center",
+  },
+  qualityValue: {
+    ...theme.typography.titleMd,
+    color: theme.colors.ink,
+  },
+  qualityLabel: {
+    ...theme.typography.legal,
+    color: theme.colors.muted,
+    marginTop: 2,
+  },
+  qualityDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: theme.colors.border,
+  },
+  weeklyWrap: {
+    marginBottom: theme.spacing.xs,
+  },
+  weeklyPlot: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    height: 140,
+    position: "relative",
+    marginBottom: theme.spacing.xs,
+  },
+  weeklyGoalLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: 0,
+    borderTopWidth: 1,
+    borderStyle: "dashed",
+    borderColor: theme.colors.muted,
+    opacity: 0.6,
+  },
+  weeklyCol: {
+    flex: 1,
+    alignItems: "center",
+  },
+  weeklyBarTrack: {
+    flex: 1,
+    width: "60%",
+    justifyContent: "flex-end",
+  },
+  weeklyBar: {
+    width: "100%",
+    borderRadius: 6,
+    minHeight: 4,
+  },
+  weeklyMissing: {
+    width: "100%",
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: theme.colors.border,
+    opacity: 0.7,
+  },
+  weeklyDay: {
+    ...theme.typography.legal,
+    color: theme.colors.muted,
+    marginTop: 6,
+  },
+  weeklyDayMissing: {
+    opacity: 0.55,
+  },
+  weeklyDayToday: {
+    color: theme.colors.ink,
+    fontFamily: "Nunito_700Bold",
+    fontWeight: "700",
+  },
+  weeklyGoalCaption: {
+    ...theme.typography.legal,
+    color: theme.colors.muted,
+    textAlign: "right",
+  },
+  weekStatsRow: {
+    flexDirection: "row",
+    marginTop: theme.spacing.md,
+    paddingTop: theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  weekStat: {
+    flex: 1,
+    alignItems: "center",
+  },
+  weekStatValue: {
+    ...theme.typography.titleMd,
+    color: theme.colors.ink,
+  },
+  weekStatLabel: {
+    ...theme.typography.legal,
+    color: theme.colors.muted,
+    marginTop: 2,
   },
   stageNoteWrap: {
     flexDirection: "row",

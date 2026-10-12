@@ -12,6 +12,7 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { theme } from "../../src/theme";
+import { GradientWash } from "../../src/components/GradientWash";
 import { loadPlan } from "../../src/services/coachPlan";
 import { isAIEnabled } from "../../src/services/localLLM";
 
@@ -34,6 +35,7 @@ export default function CompleteScreen() {
 
   return (
     <View style={styles.container}>
+      <GradientWash color={theme.colors.info} />
       <View style={styles.content}>
         <View style={styles.checkCircle}>
           <MaterialCommunityIcons name="check" size={48} color={theme.colors["on-primary"]} />
@@ -41,8 +43,8 @@ export default function CompleteScreen() {
 
         <Text style={styles.title}>You're all set</Text>
         <Text style={styles.subtitle}>
-          Your health data will appear on the Overview tab. You can change your
-          device settings anytime in Profile.
+          Your health data appears on the Overview tab — change anything later
+          in Settings.
         </Text>
 
         {goalLabels.length > 0 && (
@@ -54,12 +56,26 @@ export default function CompleteScreen() {
             <Text style={styles.planGoals}>
               {goalLabels.join(" + ")}
             </Text>
-            <Text style={styles.planBody}>
-              Your habits are ready in the Journal, nutrition targets appear
-              below your food log, and your sleep goal shows on the Home sleep
-              dial.
-              {aiEnabled && " Ask Coach anything to adjust the plan."}
-            </Text>
+            <View style={styles.planRows}>
+              <View style={styles.planRow}>
+                <MaterialCommunityIcons name="format-list-checks" size={15} color={theme.colors.muted} />
+                <Text style={styles.planRowText}>Habits ready in the Journal</Text>
+              </View>
+              <View style={styles.planRow}>
+                <MaterialCommunityIcons name="food-apple-outline" size={15} color={theme.colors.muted} />
+                <Text style={styles.planRowText}>Nutrition targets under your food log</Text>
+              </View>
+              <View style={styles.planRow}>
+                <MaterialCommunityIcons name="weather-night" size={15} color={theme.colors.muted} />
+                <Text style={styles.planRowText}>Sleep goal on the Home dial</Text>
+              </View>
+              {aiEnabled && (
+                <View style={styles.planRow}>
+                  <MaterialCommunityIcons name="robot-outline" size={15} color={theme.colors.muted} />
+                  <Text style={styles.planRowText}>Ask Coach anything to adjust the plan</Text>
+                </View>
+              )}
+            </View>
           </View>
         )}
       </View>
@@ -135,11 +151,19 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
     textAlign: "center",
   },
-  planBody: {
+  planRows: {
+    gap: theme.spacing.xs,
+    alignSelf: "stretch",
+  },
+  planRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+  },
+  planRowText: {
     ...theme.typography.legal,
     color: theme.colors.body,
-    textAlign: "center",
-    lineHeight: 17,
+    flex: 1,
   },
   footer: {
     paddingBottom: 60,

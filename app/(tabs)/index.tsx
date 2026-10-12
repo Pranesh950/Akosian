@@ -29,7 +29,8 @@ import {
   computeSleepScore,
   resetOnboardingState,
 } from "../../src/services/health";
-import { theme, formatFriendlyDate } from "../../src/theme";
+import { theme, formatFriendlyDate, formatSleepDuration } from "../../src/theme";
+import { GradientWash } from "../../src/components/GradientWash";
 import { BandGauge } from "../../src/components/BandGauge";
 import { loadPlan } from "../../src/services/coachPlan";
 import { getDistanceUnit, formatDistance, type DistanceUnit } from "../../src/services/units";
@@ -51,18 +52,23 @@ interface VitalSignCardProps {
   value: string;
   unit: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  accent?: string;
 }
 
-function VitalSignCard({ label, value, unit, icon }: VitalSignCardProps) {
+function VitalSignCard({ label, value, unit, icon, accent }: VitalSignCardProps) {
   const empty = value === "—";
+  const c = accent ?? theme.colors.ink;
   return (
     <View style={[styles.vitalCard, empty && styles.vitalCardEmpty]}>
+      <View style={[styles.vitalAccent, { backgroundColor: empty ? theme.colors.border : c }]} />
       <View style={styles.vitalTop}>
-        <MaterialCommunityIcons
-          name={icon}
-          size={16}
-          color={empty ? theme.colors.muted : theme.colors.body}
-        />
+        <View style={[styles.vitalIconWrap, { backgroundColor: `${c}14` }]}>
+          <MaterialCommunityIcons
+            name={icon}
+            size={15}
+            color={empty ? theme.colors.muted : c}
+          />
+        </View>
         <Text style={styles.vitalLabel}>{label}</Text>
       </View>
       <View style={styles.vitalValueRow}>
@@ -80,6 +86,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [status, setStatus] = useState<HealthConnectionStatus>("needs_permission");
   const [loaded, setLoaded] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [sleepGoal, setSleepGoal] = useState<number | null>(null);
   const [distanceUnit, setDistanceUnit] = useState<DistanceUnit>("km");
 
@@ -87,9 +94,10 @@ export default function HomeScreen() {
   const snapshotAnim = useRef(new Animated.Value(0)).current;
   const vitalsAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const spinAnim = useRef(new Animated.Value(0)).current;
 
-  const loadData = useCallback(async () => {
-    setRefreshing(true);
+  const loadData = useCallback(async (showIndicator = true): Promise<HealthConnectionStatus> => {
+    if (showIndicator) setRefreshing(true);
     try {
       // Refresh existing access only. Permission prompts belong to an explicit
       // connect action, not a tab focus or pull-to-refresh.
@@ -103,9 +111,11 @@ export default function HomeScreen() {
       const plan = await loadPlan();
       setSleepGoal(plan?.sleepHours ?? null);
       setDistanceUnit(await getDistanceUnit());
+      return conn;
     } catch (e) {
       console.warn("[Home] load failed:", e);
       setStatus("error");
+      return "error";
     } finally {
       setRefreshing(false);
       setLoaded(true);
@@ -147,6 +157,39 @@ export default function HomeScreen() {
   const hasSleep = (data?.sleepHours ?? 0) > 0;
 
   const showConnectBanner = loaded && status !== "connected";
+
+  // Explicit sync action. Health Connect / Apple Health cannot pull from a
+  // wearable directly — data only arrives once the wearable's own app syncs
+  // over Bluetooth — so any sync that lands empty points the user there.
+  const handleSync = async () => {
+    if (syncing) return;
+    setSyncing(true);
+    const spin = Animated.loop(
+      Animated.timing(spinAnim, { toValue: 1, duration: 900, useNativeDriver: true })
+    );
+    spin.start();
+    try {
+      // Skip the pull-to-refresh spinner; the spinning icon is the cue.
+      const conn = await loadData(false);
+      if (conn !== "connected") {
+        const needsHealthSetup =
+          conn === "needs_permission" ||
+          conn === "not_connected" ||
+          conn === "access_requested" ||
+          conn === "unavailable";
+        Alert.alert(
+          conn === "connected_no_data" ? "No new data yet" : "Sync failed",
+          needsHealthSetup
+            ? "Myrri can't read your health data yet — connect your health data first, then tap Sync again."
+            : "We couldn't pull any new data. Turn on Bluetooth and make sure your wearable is connected and syncing in its companion app, then tap Sync again."
+        );
+      }
+    } finally {
+      spin.stop();
+      spinAnim.setValue(0);
+      setSyncing(false);
+    }
+  };
 
   const handleConnect = async () => {
     // iOS only shows the HealthKit permission sheet once per data type. Once
@@ -219,6 +262,7 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <GradientWash color={theme.colors.info} />
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Overview</Text>
@@ -227,11 +271,38 @@ export default function HomeScreen() {
         <View style={styles.headerRight}>
           <TouchableOpacity
             style={styles.headerIconButton}
+            onPress={handleSync}
+            activeOpacity={0.7}
+            disabled={syncing}
+            accessibilityLabel="Sync health data"
+            accessibilityRole="button"
+          >
+            <Animated.View
+              style={{
+                transform: [
+                  {
+                    rotate: spinAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ["0deg", "360deg"],
+                    }),
+                  },
+                ],
+              }}
+            >
+              <MaterialCommunityIcons
+                name="sync"
+                size={18}
+                color={syncing ? theme.colors.primary : theme.colors.ink}
+              />
+            </Animated.View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerIconButton}
             onPress={() => router.push("/settings")}
             activeOpacity={0.7}
             accessibilityLabel="Settings"
           >
-            <MaterialCommunityIcons name="cog-outline" size={17} color={theme.colors.ink} />
+            <MaterialCommunityIcons name="cog-outline" size={20} color={theme.colors.ink} />
           </TouchableOpacity>
           {__DEV__ && (
             <TouchableOpacity
@@ -240,7 +311,7 @@ export default function HomeScreen() {
               activeOpacity={0.7}
               accessibilityLabel="Restart onboarding (dev only)"
             >
-              <MaterialCommunityIcons name="restart" size={15} color={theme.colors.muted} />
+              <MaterialCommunityIcons name="restart" size={18} color={theme.colors.muted} />
             </TouchableOpacity>
           )}
           <View
@@ -287,7 +358,7 @@ export default function HomeScreen() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={loadData}
+            onRefresh={() => loadData()}
             tintColor={theme.colors.muted}
           />
         }
@@ -358,7 +429,7 @@ export default function HomeScreen() {
                   (data?.sleepHours ?? 0) >= sleepGoal - 0.5 && styles.sleepGoalCaptionHit,
                 ]}
               >
-                {data?.sleepHours?.toFixed(1)}h of {sleepGoal}h goal
+                {formatSleepDuration(data?.sleepHours)} of {formatSleepDuration(sleepGoal)} goal
               </Text>
             )}
           </TouchableOpacity>
@@ -382,12 +453,18 @@ export default function HomeScreen() {
         <Text style={styles.sectionTitle}>Today</Text>
         <View style={styles.snapshotRow}>
           <View style={styles.snapshotCard}>
+            <View style={[styles.snapshotIcon, { backgroundColor: `${theme.colors.success}14` }]}>
+              <MaterialCommunityIcons name="shoe-print" size={15} color={theme.colors.success} />
+            </View>
             <Text style={styles.snapshotLabel}>Steps</Text>
             <Text style={styles.snapshotValue}>
               {data?.steps ? data.steps.toLocaleString() : "—"}
             </Text>
           </View>
           <View style={styles.snapshotCard}>
+            <View style={[styles.snapshotIcon, { backgroundColor: `${theme.colors.warning}14` }]}>
+              <MaterialCommunityIcons name="fire" size={15} color={theme.colors.warning} />
+            </View>
             <Text style={styles.snapshotLabel}>Active cal</Text>
             <Text style={styles.snapshotValue}>
               {data?.activeCalories ? Math.round(data.activeCalories).toString() : "—"}
@@ -397,11 +474,14 @@ export default function HomeScreen() {
             ) : null}
           </View>
           <View style={styles.snapshotCard}>
+            <View style={[styles.snapshotIcon, { backgroundColor: `${theme.colors.info}14` }]}>
+              <MaterialCommunityIcons name="map-marker-distance" size={15} color={theme.colors.info} />
+            </View>
             <Text style={styles.snapshotLabel}>Distance</Text>
             <Text style={styles.snapshotValue}>
               {data?.distance ? formatDistance(data.distance, distanceUnit) : "—"}
             </Text>
-        </View>
+          </View>
         </View>
         </Animated.View>
 
@@ -414,30 +494,37 @@ export default function HomeScreen() {
             value={fmt(data?.heartRateVariability)}
             unit="ms"
             icon="waveform"
+            accent={theme.colors.lilac}
           />
           <VitalSignCard
             label="Resting HR"
             value={fmt(data?.restingHeartRate)}
             unit="bpm"
             icon="heart-pulse"
+            accent={theme.colors.danger}
           />
           <VitalSignCard
             label="Sleep"
-            value={fmt(data?.sleepHours && data.sleepHours > 0 ? data.sleepHours : null, 1)}
-            unit="hrs"
+            value={formatSleepDuration(
+              data?.sleepHours && data.sleepHours > 0 ? data.sleepHours : null
+            )}
+            unit=""
             icon="weather-night"
+            accent={theme.colors.sleep}
           />
           <VitalSignCard
             label="Resp. rate"
             value={fmt(data?.respiratoryRate, 1)}
             unit="rpm"
             icon="lungs"
+            accent={theme.colors.sky}
           />
           <VitalSignCard
             label="Blood O₂"
             value={fmt(data?.bloodOxygen)}
             unit="%"
             icon="water-outline"
+            accent={theme.colors.success}
           />
           <VitalSignCard
             label="Avg HR"
@@ -450,6 +537,7 @@ export default function HomeScreen() {
             }
             unit="bpm"
             icon="heart-outline"
+            accent={theme.colors.coral}
           />
         </View>
       </Animated.View>
@@ -488,8 +576,8 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   headerIconButton: {
-    width: 30,
-    height: 30,
+    width: 38,
+    height: 38,
     borderRadius: theme.radii.full,
     backgroundColor: theme.colors.card,
     borderWidth: 1,
@@ -498,8 +586,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   devRestartButton: {
-    width: 30,
-    height: 30,
+    width: 38,
+    height: 38,
     borderRadius: theme.radii.full,
     backgroundColor: theme.colors.card,
     borderWidth: 1,
@@ -632,9 +720,19 @@ const styles = StyleSheet.create({
     ...theme.typography.legal,
     color: theme.colors.muted,
     marginBottom: 4,
+    textTransform: "uppercase",
+  },
+  snapshotIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: theme.spacing.sm,
   },
   snapshotValue: {
     ...theme.typography.titleLg,
+    fontSize: 22,
     color: theme.colors.ink,
   },
   snapshotUnit: {
@@ -655,7 +753,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     padding: theme.spacing.md,
+    overflow: "hidden",
     ...theme.shadows.cardSoft,
+  },
+  vitalAccent: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
   },
   vitalCardEmpty: {
     opacity: 0.85,
@@ -669,6 +775,18 @@ const styles = StyleSheet.create({
   vitalLabel: {
     ...theme.typography.legal,
     color: theme.colors.muted,
+    textTransform: "uppercase",
+  },
+  vitalIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: theme.colors.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  vitalIconWrapEmpty: {
+    backgroundColor: theme.colors.surfaceElevated,
   },
   vitalValueRow: {
     flexDirection: "row",
@@ -677,7 +795,7 @@ const styles = StyleSheet.create({
   },
   vitalValue: {
     ...theme.typography.metricValue,
-    fontSize: 26,
+    fontSize: 30,
     color: theme.colors.ink,
   },
   vitalValueEmpty: {

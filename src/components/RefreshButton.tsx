@@ -61,7 +61,7 @@ export function RefreshButton({
       <Animated.View style={{ transform: [{ rotate }] }}>
         <MaterialCommunityIcons
           name="refresh"
-          size={20}
+          size={24}
           color={refreshing ? theme.colors.primary : theme.colors.ink}
         />
       </Animated.View>
@@ -71,9 +71,9 @@ export function RefreshButton({
 
 const styles = StyleSheet.create({
   button: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: theme.colors.card,

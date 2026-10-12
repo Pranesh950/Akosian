@@ -43,8 +43,10 @@ export default function BarcodeScanScreen() {
         const food = await searchFoodByBarcode(data);
         if (food) {
           // Reuse the existing serving-size + logging screen for the match.
+          // source=barcode marks a packaged product so the detail screen can
+          // default to 1 package unit (e.g. 1 bottle) instead of a gram guess.
           router.replace(
-            `/food-detail?fdcId=${encodeURIComponent(food.fdcId)}&foodName=${encodeURIComponent(food.description)}`
+            `/food-detail?fdcId=${encodeURIComponent(food.fdcId)}&foodName=${encodeURIComponent(food.description)}&source=barcode`
           );
           return;
         }

@@ -28,6 +28,19 @@ import { ChatBubble } from "../src/components/ChatBubble";
 import { ThinkingBubble } from "../src/components/ThinkingBubble";
 import { BetaBadge, BetaChip } from "../src/components/BetaBadge";
 import {
+  isAIEnabled,
+  type ChatSession,
+  type ToolHandler,
+  type DisplayMessage,
+} from "../src/services/localLLM";
+import {
+  createAgentChatSession,
+  type AgentChatSession,
+  type AgentChatTurn,
+} from "../src/services/ai/chatSession";
+import { FOOD_AGENT_ENABLED, FOOD_AGENT_INSTRUCTIONS } from "../src/services/ai/foodTools";
+import { toolActivity, sourcesForTools } from "../src/services/ai/toolLabels";
+import {
   initializeLLM,
   getStatus,
   extractMessages,
@@ -37,10 +50,6 @@ import {
   switchLlamaModel,
   checkModelDownloaded,
   createChatSession,
-  isAIEnabled,
-  type ChatSession,
-  type ToolHandler,
-  type DisplayMessage,
 } from "../src/services/localLLM";
 import {
   searchFood,
@@ -107,13 +116,14 @@ export default function FoodChatScreen() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [activity, setActivity] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [pendingQueue, setPendingQueue] = useState<string[]>([]);
   const [initState, setInitState] = useState<"init" | "downloading" | "ready" | "error">("init");
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [aiDisabled, setAiDisabled] = useState(false);
   const flatRef = useRef<FlatList>(null);
-  const sessionRef = useRef<ChatSession | null>(null);
+  const sessionRef = useRef<ChatSession | AgentChatSession | null>(null);
 
   const [showSearchFallback, setShowSearchFallback] = useState(params.mode === "search");
   // True when this screen was OPENED in search mode (e.g. "Manual log" from
@@ -130,7 +140,6 @@ export default function FoodChatScreen() {
   const [availableModels, setAvailableModels] = useState<LlamaModel[]>([]);
   const [currentModelId, setCurrentModelId] = useState<string | null>(null);
   const [modelDownloadStates, setModelDownloadStates] = useState<Record<string, "not_downloaded" | "downloading" | "ready">>({});
-  const [modelProgress, setModelProgress] = useState<Record<string, number>>({});
 
   useEffect(() => {
     (async () => {
@@ -145,15 +154,16 @@ export default function FoodChatScreen() {
         await initializeLLM();
 
         // Create food-specific chat session
-        const session = createChatSession({
-          systemPrompt: FOOD_SYSTEM_PROMPT,
-          toolHandlers: buildFoodToolHandlers(),
-        });
+        const session: ChatSession | AgentChatSession = FOOD_AGENT_ENABLED
+          ? createAgentChatSession({ systemPrompt: FOOD_AGENT_INSTRUCTIONS, kind: "food" })
+          : createChatSession({
+              systemPrompt: FOOD_SYSTEM_PROMPT,
+              toolHandlers: buildFoodToolHandlers(),
+            });
         sessionRef.current = session;
 
         setInitState("ready");
-        const history = extractMessages(session.getHistory());
-        setMessages(history);
+        setMessages([]);
 
         // Load available models
         const provider = getStatus();
@@ -197,10 +207,12 @@ export default function FoodChatScreen() {
             // the user just enabled it), so handleSend never drops a message
             // against a null sessionRef.
             if (!sessionRef.current) {
-              sessionRef.current = createChatSession({
-                systemPrompt: FOOD_SYSTEM_PROMPT,
-                toolHandlers: buildFoodToolHandlers(),
-              });
+              sessionRef.current = FOOD_AGENT_ENABLED
+                ? createAgentChatSession({ systemPrompt: FOOD_AGENT_INSTRUCTIONS, kind: "food" })
+                : createChatSession({
+                    systemPrompt: FOOD_SYSTEM_PROMPT,
+                    toolHandlers: buildFoodToolHandlers(),
+                  });
             }
             setAiDisabled(false);
             setInitState("ready");
@@ -258,10 +270,20 @@ export default function FoodChatScreen() {
     setLoading(true);
     setStreamingText("");
     try {
-      const history = await sessionRef.current.sendMessage(text, (partial) => {
-        setStreamingText(partial);
-      });
-      setMessages(extractMessages(history));
+      if (FOOD_AGENT_ENABLED) {
+        const turns = await (sessionRef.current as AgentChatSession).sendMessage(
+          text,
+          (partial) => setStreamingText(partial),
+          (a) => setActivity(a.kind === "tool" ? toolActivity(a.label) : "Thinking…"),
+        );
+        setMessages(agentTurnsToDisplay(turns));
+      } else {
+        const history = await (sessionRef.current as ChatSession).sendMessage(
+          text,
+          (partial) => setStreamingText(partial),
+        );
+        setMessages(extractMessages(history));
+      }
     } catch (e) {
       console.warn("[FoodChat] Send failed:", e);
       setMessages((prev) => [
@@ -274,6 +296,7 @@ export default function FoodChatScreen() {
     } finally {
       setLoading(false);
       setStreamingText(null);
+      setActivity(null);
     }
   }, []);
 
@@ -308,6 +331,26 @@ export default function FoodChatScreen() {
     setMessages([]);
     setPendingQueue([]);
   }, []);
+
+  function agentTurnsToDisplay(turns: AgentChatTurn[]): DisplayMessage[] {
+    return turns.map((t) => {
+      if (t.role === "user") return { sender: "user" as const, text: t.text };
+      const msg: DisplayMessage = { sender: "assistant" as const, text: t.text };
+      msg.sources = sourcesForTools(t.tools);
+      msg.reasoning = t.reasoning;
+      if (t.pendingApproval) {
+        const p = t.pendingApproval;
+        msg.pendingApproval = {
+          type: p.toolName === "delete_meal" ? "delete" : "edit",
+          mealId: p.input?.mealId ?? "",
+          foodName: p.input?.foodName ?? "",
+          date: formatDateKey(new Date()),
+          newServingG: p.input?.newServingGrams,
+        };
+      }
+      return msg;
+    });
+  }
 
   const logFood = useCallback(
     async (food: FoodItem, servingGrams: number) => {
@@ -358,6 +401,14 @@ export default function FoodChatScreen() {
               : m
           )
         );
+        if (FOOD_AGENT_ENABLED) {
+          (sessionRef.current as AgentChatSession | null)?.resolveApproval(
+            approval.mealId,
+            approval.type === "delete"
+              ? `Deleted "${approval.foodName}"`
+              : `Updated "${approval.foodName}" to ${approval.newServingG}g`,
+          );
+        }
       } catch (e) {
         console.warn("[FoodChat] Approve failed:", e);
       }
@@ -381,6 +432,12 @@ export default function FoodChatScreen() {
             : m
         )
       );
+      if (FOOD_AGENT_ENABLED) {
+        (sessionRef.current as AgentChatSession | null)?.resolveApproval(
+          approval.mealId,
+          approval.type === "delete" ? `Keeping "${approval.foodName}"` : `Keeping "${approval.foodName}" as-is`,
+        );
+      }
     },
     []
   );
@@ -522,8 +579,14 @@ export default function FoodChatScreen() {
   }
 
   // ── Main chat ────────────────────────────────────────────────
+  // Android needs "height": adjustResize no longer resizes the window once
+  // edge-to-edge is enforced (Android 15+, targetSdk 35+), which left the
+  // input bar behind the keyboard. RN's KAV pins its height to the initial
+  // frame, so this also stays correct on devices where adjustResize still
+  // works. No keyboardVerticalOffset: there is no native header to offset
+  // for (headerShown: false).
   return (
-    <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top }]} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 44 : insets.bottom}>
+    <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top }]} behavior={Platform.OS === "ios" ? "padding" : "height"}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={handleBack} style={styles.headerIconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -558,7 +621,7 @@ export default function FoodChatScreen() {
         }
         ListFooterComponent={
           loading && !streamingText ? (
-            <ThinkingBubble />
+            <ThinkingBubble label={activity ?? "Thinking"} />
           ) : streamingText != null ? (
             <View style={styles.streamingRow}>
               <View style={styles.streamingAvatar}>
@@ -574,7 +637,7 @@ export default function FoodChatScreen() {
           ) : null
         }
         renderItem={({ item }) => (
-          <ChatBubble sender={item.sender} text={item.text} mealInfo={null} isAction={item.isAction} pendingApproval={(item as any).pendingApproval} mealList={(item as any).mealList} onApprove={handleApprove} onReject={handleReject} />
+          <ChatBubble sender={item.sender} text={item.text} mealInfo={null} isAction={item.isAction} pendingApproval={item.pendingApproval} mealList={item.mealList} onApprove={handleApprove} onReject={handleReject} sources={item.sources} reasoning={item.reasoning} />
         )}
         onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: true })} onLayout={() => flatRef.current?.scrollToEnd({ animated: false })}
       />
@@ -592,8 +655,8 @@ export default function FoodChatScreen() {
 
       {/* Model picker modal */}
       {showModelPicker && (
-        <View style={styles.modelOverlay}>
-          <View style={styles.modelSheet}>
+        <TouchableOpacity style={styles.modelOverlay} activeOpacity={1} onPress={() => setShowModelPicker(false)}>
+          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={styles.modelSheet}>
             <View style={styles.modelSheetHeader}>
               <Text style={styles.modelSheetTitle}>Choose Model</Text>
               <TouchableOpacity onPress={() => setShowModelPicker(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -604,12 +667,11 @@ export default function FoodChatScreen() {
             {availableModels.map((m) => {
               const isCurrent = m.id === currentModelId;
               const dlState = modelDownloadStates[m.id] ?? "not_downloaded";
-              const progress = modelProgress[m.id] ?? 0;
               return (
                 <TouchableOpacity key={m.id} style={[styles.modelRow, isCurrent && styles.modelRowActive]} onPress={() => handleSwitchModel(m.id)} disabled={dlState === "downloading"} activeOpacity={0.7}>
                   <View style={styles.modelRowInfo}><Text style={styles.modelRowName}>{m.name}</Text><Text style={styles.modelRowSize}>{m.size}</Text></View>
                   {dlState === "downloading" ? (
-                    <View style={styles.modelProgressWrap}><View style={styles.modelProgressTrack}><View style={[styles.modelProgressFill, { width: `${Math.max(4, progress * 100)}%` }]} /></View></View>
+                    <ActivityIndicator size="small" color={theme.colors.primary} />
                   ) : isCurrent ? (
                     <View style={styles.modelActiveBadge}><MaterialCommunityIcons name="check-circle" size={16} color={theme.colors.success} /></View>
                   ) : dlState === "ready" ? (
@@ -620,8 +682,8 @@ export default function FoodChatScreen() {
                 </TouchableOpacity>
               );
             })}
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       )}
     </KeyboardAvoidingView>
   );
@@ -778,9 +840,6 @@ const styles = StyleSheet.create({
   modelRowSize: { ...theme.typography.legal, color: theme.colors.muted, marginTop: 2 },
   modelActiveBadge: { width: 32, height: 32, borderRadius: 16, backgroundColor: `${theme.colors.success}15`, alignItems: "center", justifyContent: "center" },
   modelDownloadBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: `${theme.colors.primary}10`, alignItems: "center", justifyContent: "center" },
-  modelProgressWrap: { width: 80 },
-  modelProgressTrack: { height: 6, backgroundColor: theme.colors.border, borderRadius: 3, overflow: "hidden" },
-  modelProgressFill: { height: "100%", backgroundColor: theme.colors.primary, borderRadius: 3 },
   // ── Streaming bubble ─────────────────────────────────────────
   streamingRow: { flexDirection: "row", gap: 10, marginBottom: 12 },
   streamingAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: theme.colors.surfaceElevated, borderWidth: 1, borderColor: theme.colors.border, alignItems: "center", justifyContent: "center", alignSelf: "flex-end" },

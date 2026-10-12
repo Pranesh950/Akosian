@@ -26,15 +26,21 @@ import { useGoBack } from "../src/hooks/useGoBack";
 import {  getFoodByFdcId, searchFood, logMeal, deleteMeal, getServingUnits, estimateServing, getFoodDatabaseAttribution, FoodItem, MealEntry } from "../src/services/foodDatabase";
 import type { ServingUnit } from "../src/services/foodDatabase";
 
+// Package-like units, most specific first. The catalog only carries per-100 g
+// values with no package size, so scanned/branded (packaged) foods default to 1
+// of the first matching unit (e.g. 1 bottle) instead of a gram estimate.
+const PACKAGE_UNIT_PRIORITY = ["bottle", "can", "packet", "bar", "piece", "slice", "scoop"];
+
 export default function FoodDetailScreen() {
   const insets = useSafeAreaInsets();
   const handleBack = useGoBack();
-  const { fdcId, foodName, serving: presetServing, mealId, date: mealDate } = useLocalSearchParams<{
+  const { fdcId, foodName, serving: presetServing, mealId, date: mealDate, source } = useLocalSearchParams<{
     fdcId: string;
     foodName?: string;
     serving?: string;
     mealId?: string;
     date?: string;
+    source?: string;
   }>();
   const [food, setFood] = useState<FoodItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,8 +65,26 @@ export default function FoodDetailScreen() {
         }
         setFood(item);
         if (!presetServing && item) {
-          const estimated = estimateServing(item.description);
-          setServing(String(estimated));
+          // Packaged products (barcode scans, branded catalog rows) default to
+          // 1 package unit — e.g. 1 bottle of kombucha — instead of a gram
+          // estimate, since the catalog has no package-size data.
+          const units = getServingUnits(item.description);
+          let packagedUnit: ServingUnit | null = null;
+          if (source === "barcode" || item.category === "Branded") {
+            for (const label of PACKAGE_UNIT_PRIORITY) {
+              const match = units.find((u) => u.label === label);
+              if (match) {
+                packagedUnit = match;
+                break;
+              }
+            }
+          }
+          if (packagedUnit) {
+            setActiveUnit(packagedUnit);
+            setServing("1");
+          } else {
+            setServing(String(estimateServing(item.description)));
+          }
         }
       } catch (e) {
         console.warn("[FoodDetail] Load failed:", e);
@@ -68,7 +92,7 @@ export default function FoodDetailScreen() {
         setLoading(false);
       }
     })();
-  }, [fdcId, foodName, mealId, presetServing]);
+  }, [fdcId, foodName, mealId, presetServing, source]);
 
   // The typed number is grams when no unit is selected, otherwise a count of
   // the active unit (e.g. 2 oranges). gramsPerUnit converts either to grams.

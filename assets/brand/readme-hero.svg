@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Myrri — health should be private and free</title>
+  <desc id="desc">A cream and coral banner: Your health. Your phone. Your rules. Free, open source, local-first. Illustrative cards show readiness, sleep, and food logging; they are not actual app screenshots.</desc>
+  <defs>
+    <linearGradient id="wash" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFF9F2"/>
+      <stop offset="1" stop-color="#F9E8E2"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" rx="32" fill="url(#wash)"/>
+  <circle cx="1130" cy="70" r="210" fill="#E56F63" opacity=".09"/>
+  <circle cx="40" cy="630" r="180" fill="#E56F63" opacity=".07"/>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <rect x="64" y="58" width="44" height="44" rx="14" fill="#E56F63"/>
+    <path d="M76 80h6l4-10 5 20 4-10h6" fill="none" stroke="#FFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="122" y="91" font-size="34" font-weight="700" fill="#25272D">Myrri</text>
+    <text x="64" y="178" font-size="15" font-weight="700" letter-spacing="3" fill="#9A4942">HEALTH SHOULD BE PRIVATE AND FREE.</text>
+    <g font-size="66" font-weight="700" fill="#25272D">
+      <text x="60" y="264">Your health.</text>
+      <text x="60" y="343">Your phone.</text>
+      <text x="60" y="422" fill="#B95147">Your rules.</text>
+    </g>
+    <text x="64" y="476" font-size="22" fill="#595A61">Sleep. Recovery. Food. Habits. Optional AI.</text>
+    <rect x="64" y="516" width="442" height="48" rx="24" fill="#25272D"/>
+    <text x="285" y="547" text-anchor="middle" font-size="17" font-weight="700" fill="#FFF9F2">FREE · OPEN SOURCE · LOCAL-FIRST</text>
+    <rect x="704" y="110" width="400" height="386" rx="28" fill="#FFFFFF" stroke="#E8DCD5" stroke-width="2"/>
+    <text x="738" y="153" font-size="20" font-weight="700" fill="#25272D">A little clarity for your day.</text>
+    <circle cx="780" cy="231" r="43" fill="none" stroke="#F4EAE5" stroke-width="10"/>
+    <circle cx="780" cy="231" r="43" fill="none" stroke="#E56F63" stroke-width="10" stroke-dasharray="235 271" transform="rotate(-90 780 231)"/>
+    <text x="780" y="242" text-anchor="middle" font-size="32" font-weight="700" fill="#25272D">87</text>
+    <text x="850" y="224" font-size="22" font-weight="700" fill="#25272D">Readiness</text>
+    <text x="850" y="252" font-size="17" fill="#66676F">Your baseline. Your trends.</text>
+    <path d="M738 300h332" stroke="#EFE8E3" stroke-width="2"/>
+    <text x="738" y="338" font-size="17" fill="#66676F">SLEEP</text>
+    <text x="1070" y="340" text-anchor="end" font-size="26" font-weight="700" fill="#25272D">7h 42m</text>
+    <rect x="738" y="357" width="332" height="8" rx="4" fill="#ECEFF3"/>
+    <rect x="738" y="357" width="280" height="8" rx="4" fill="#6B83A5"/>
+    <rect x="730" y="393" width="348" height="78" rx="16" fill="#FFF4ED"/>
+    <text x="750" y="423" font-size="15" font-weight="700" fill="#9A4942">FOOD LOGGING, WITHOUT THE FUSS</text>
+    <text x="750" y="451" font-size="19" fill="#25272D">“Two eggs, toast, coffee.”</text>
+    <text x="904" y="531" text-anchor="middle" font-size="14" fill="#77716D">Illustration · not an app screenshot</text>
+  </g>
+</svg>

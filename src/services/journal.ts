@@ -150,6 +150,121 @@ export const HABIT_LIBRARY: LibraryHabit[] = [
 const ACTIVE_HABITS_KEY = "active_habits";
 const HABIT_FORMAT_VERSION = 2;
 
+const CUSTOM_HABITS_KEY = "custom_habits_v1";
+export const MAX_CUSTOM_HABITS = 25;
+export const MAX_CUSTOM_LABEL_LENGTH = 40;
+
+export interface CustomHabitInput {
+  label: string;
+  emoji: string;
+  type: HabitType;
+  /** Required for counter habits (1–99). */
+  target?: number;
+  /** Unit label for measure habits (e.g. "min", "pages"). */
+  unit?: string;
+  category: "daytime" | "nighttime";
+}
+
+/** User-created habits live alongside the built-in library. */
+let customHabitsCache: LibraryHabit[] | null = null;
+
+/** Built-ins plus user customs (empty until refreshHabitLibrary runs). */
+export function getHabitLibrary(): LibraryHabit[] {
+  return customHabitsCache ? [...HABIT_LIBRARY, ...customHabitsCache] : [...HABIT_LIBRARY];
+}
+
+export function findHabit(id: string): LibraryHabit | undefined {
+  if (isCustomHabitId(id) && customHabitsCache) {
+    const custom = customHabitsCache.find((h) => h.id === id);
+    if (custom) return custom;
+  }
+  return HABIT_LIBRARY.find((h) => h.id === id) ?? customHabitsCache?.find((h) => h.id === id);
+}
+
+export function isCustomHabitId(id: string): boolean {
+  return id.startsWith("custom_");
+}
+
+function sanitizeCustomHabit(raw: unknown): LibraryHabit | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.id !== "string" || !isCustomHabitId(r.id)) return null;
+  if (typeof r.label !== "string" || !r.label.trim()) return null;
+  if (r.category !== "daytime" && r.category !== "nighttime") return null;
+  if (r.type !== "binary" && r.type !== "counter" && r.type !== "measure") return null;
+  const habit: LibraryHabit = {
+    id: r.id,
+    label: r.label.trim().slice(0, MAX_CUSTOM_LABEL_LENGTH),
+    emoji: typeof r.emoji === "string" && r.emoji ? Array.from(r.emoji).slice(0, 2).join("") : "⭐",
+    category: r.category,
+    type: r.type,
+  };
+  if (habit.type === "counter") {
+    const target = Math.round(Number(r.target));
+    habit.target = Number.isFinite(target) ? Math.min(99, Math.max(1, target)) : 1;
+  }
+  if (habit.type === "measure") {
+    habit.unit = typeof r.unit === "string" ? r.unit.trim().slice(0, 8) : "";
+    habit.decimals = 0;
+    habit.step = 1;
+  }
+  return habit;
+}
+
+/** Loads customs from storage into the in-memory cache. Call on launch/focus. */
+export async function refreshHabitLibrary(): Promise<LibraryHabit[]> {
+  try {
+    const raw = await AsyncStorage.getItem(CUSTOM_HABITS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    const customs = Array.isArray(parsed)
+      ? parsed
+        .map(sanitizeCustomHabit)
+        .filter((h): h is LibraryHabit => h != null)
+      : [];
+    customHabitsCache = customs;
+  } catch {
+    customHabitsCache = [];
+  }
+  return getHabitLibrary();
+}
+
+async function persistCustomHabits(customs: LibraryHabit[]): Promise<void> {
+  customHabitsCache = customs;
+  await AsyncStorage.setItem(CUSTOM_HABITS_KEY, JSON.stringify(customs));
+}
+
+export async function createCustomHabit(input: CustomHabitInput): Promise<LibraryHabit> {
+  if (customHabitsCache == null) await refreshHabitLibrary();
+  const customs = [...(customHabitsCache ?? [])];
+  if (customs.length >= MAX_CUSTOM_HABITS) {
+    throw new Error(`You can create up to ${MAX_CUSTOM_HABITS} custom habits.`);
+  }
+  const label = input.label.trim().slice(0, MAX_CUSTOM_LABEL_LENGTH);
+  if (!label) throw new Error("Give your habit a name.");
+  const habit = sanitizeCustomHabit({
+    id: `custom_${Date.now().toString(36)}`,
+    label,
+    emoji: input.emoji,
+    category: input.category,
+    type: input.type,
+    target: input.target,
+    unit: input.unit,
+  });
+  if (!habit) throw new Error("Could not create that habit.");
+  customs.push(habit);
+  await persistCustomHabits(customs);
+  await addActiveHabit(habit.id);
+  return habit;
+}
+
+export async function deleteCustomHabit(id: string): Promise<void> {
+  if (!isCustomHabitId(id)) return;
+  if (customHabitsCache == null) await refreshHabitLibrary();
+  const customs = (customHabitsCache ?? []).filter((h) => h.id !== id);
+  await persistCustomHabits(customs);
+  await removeActiveHabit(id);
+}
+
 export async function getActiveHabitIds(): Promise<string[]> {
   try {
     const raw = await AsyncStorage.getItem(ACTIVE_HABITS_KEY);

@@ -578,6 +578,7 @@ export function estimateServing(description: string): number {
   if (d.includes("beer") || d.includes("ale") || d.includes("lager") || d.includes("stout")) return 355; // 12 oz
   if (d.includes("wine") || d.includes("champagne") || d.includes("prosecco")) return 150; // 5 oz
   if (d.includes("soda") || d.includes("cola") || d.includes("coke") || d.includes("pop") || d.includes("soft drink")) return 355; // 12 oz can
+  if (d.includes("kombucha")) return 355; // standard 12 oz bottle
   if (d.includes("energy") && (d.includes("drink") || d.includes("red bull") || d.includes("monster"))) return 250; // 8.4 oz
   if (d.includes("smoothie") || d.includes("shake") || d.includes("frappe") || d.includes("frappuccino")) return 400; // 16 oz
   if (d.includes("coffee") || d.includes("espresso") || d.includes("latte") || d.includes("cappuccino") || d.includes("mocha") || d.includes("americano") || d.includes("tea") || d.includes("chai")) return 240; // 8 oz

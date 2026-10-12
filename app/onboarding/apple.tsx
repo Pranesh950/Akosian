@@ -21,6 +21,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { HealthService } from "../../src/services/health";
 import { useGoBack } from "../../src/hooks/useGoBack";
 import { theme } from "../../src/theme";
+import { GradientWash } from "../../src/components/GradientWash";
 
 const permissions = [
   { icon: "shoe-print", label: "Steps & Distance", color: theme.colors.success },
@@ -90,6 +91,7 @@ export default function AppleScreen() {
 
   return (
     <View style={styles.container}>
+      <GradientWash color={theme.colors.info} />
       <TouchableOpacity onPress={handleBack} style={styles.backBtn} activeOpacity={0.7}>
         <MaterialCommunityIcons name="arrow-left" size={22} color={theme.colors.ink} />
       </TouchableOpacity>
@@ -98,7 +100,8 @@ export default function AppleScreen() {
         <Text style={styles.step}>2 of 3</Text>
         <Text style={styles.title}>Connect to HealthKit</Text>
         <Text style={styles.subtitle}>
-          Apple will show the permission sheet next. Choose the categories you want to share; you can change them later in Settings.
+          Apple will show a permission sheet next — pick the categories to
+          share. You can change them later in Settings.
         </Text>
       </View>
 

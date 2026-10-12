@@ -16,6 +16,8 @@
  * and never a substitute for medical advice. Every chunk keeps that framing.
  */
 
+import { formatSleepDuration } from "../theme";
+
 export interface GoalSection {
   id: string;
   title: string;
@@ -753,7 +755,7 @@ export function getGoalById(id: string): GoalDoc | undefined {
 export function getGoalSummary(goalId: string): string | null {
   const goal = getGoalById(goalId);
   if (!goal) return null;
-  return `${goal.id} — ${goal.label}: ${goal.summary} Sleep target ${goal.sleepHours}h, ${goal.stepsPerDay.toLocaleString()} steps/day.`;
+  return `${goal.id} — ${goal.label}: ${goal.summary} Sleep target ${formatSleepDuration(goal.sleepHours)}, ${goal.stepsPerDay.toLocaleString()} steps/day.`;
 }
 
 export function getAllGoalsForPicker(): Array<Pick<GoalDoc, "id" | "label" | "emoji" | "icon" | "tagline">> {

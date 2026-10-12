@@ -45,6 +45,11 @@ import {
   type DistanceUnit,
   type WeightUnit,
 } from "../src/services/units";
+import {
+  formatProfileBodySummary,
+  getHealthProfile,
+  type HealthProfile,
+} from "../src/services/profile";
 
 const PROVIDER_LABELS: Record<LLMChoice, string> = {
   local: "On-device",
@@ -134,6 +139,9 @@ export default function SettingsScreen() {
     useState<HealthConnectionStatus>("needs_permission");
   const [healthBusy, setHealthBusy] = useState(false);
 
+  // ── Profile ──────────────────────────────────────────────────
+  const [profile, setProfile] = useState<HealthProfile | null>(null);
+
   const loadSettings = useCallback(async () => {
     try {
       setAiChoice(await getLLMChoice());
@@ -155,6 +163,9 @@ export default function SettingsScreen() {
     } catch {}
     try {
       setWeightUnitState(await getWeightUnit());
+    } catch {}
+    try {
+      setProfile(await getHealthProfile());
     } catch {}
   }, []);
 
@@ -280,6 +291,37 @@ export default function SettingsScreen() {
         </TouchableOpacity>
         <Text style={styles.hint}>
           Chat, food logging, and plan building use this AI. Switch anytime — or turn it off entirely.
+        </Text>
+
+        {/* ── Profile ────────────────────────────────────── */}
+        <Text style={[styles.sectionLabel, { marginTop: theme.spacing.xl }]}>PROFILE</Text>
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => router.push("/onboarding/profile?from=settings")}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Edit profile"
+        >
+          <View style={[styles.rowIcon, { backgroundColor: `${theme.colors.lilac}18` }]}>
+            <MaterialCommunityIcons name="account-outline" size={20} color={theme.colors.lilac} />
+          </View>
+          <View style={styles.rowCopy}>
+            <Text style={styles.rowTitle}>Age, height & weight</Text>
+            <Text style={styles.rowSub}>
+              {profile
+                ? [
+                    `${profile.chronologicalAge} yrs`,
+                    formatProfileBodySummary(profile),
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")
+                : "Not set up"}
+            </Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.muted} />
+        </TouchableOpacity>
+        <Text style={styles.hint}>
+          Personalizes calorie and protein targets plus the biological-age estimate. Stays on this device.
         </Text>
 
         {/* ── Morning brief ────────────────────────────────── */}

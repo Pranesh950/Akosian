@@ -18,6 +18,7 @@ import {
 import { useRouter } from "expo-router";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { theme } from "../../src/theme";
+import { GradientWash } from "../../src/components/GradientWash";
 import { useGoBack } from "../../src/hooks/useGoBack";
 import { getAllGoalsForPicker } from "../../src/services/goalLibrary";
 import { createPlan, type ActivityLevel } from "../../src/services/coachPlan";
@@ -69,6 +70,7 @@ export default function GoalsScreen() {
 
   return (
     <View style={styles.container}>
+      <GradientWash color={theme.colors.info} />
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -84,8 +86,8 @@ export default function GoalsScreen() {
           </View>
           <Text style={styles.title}>What are your goals?</Text>
           <Text style={styles.subtitle}>
-            Pick one or two and we'll build a personalised plan — habits,
-            nutrition targets, and sleep goals that show up across the app.
+            Pick one or two — we'll build a plan of habits, nutrition, and
+            sleep goals that runs across the app.
           </Text>
         </View>
 
@@ -160,16 +162,15 @@ export default function GoalsScreen() {
             })}
           </View>
           <Text style={styles.activityHint}>
-            Used to estimate your calorie targets. You can tune everything with
-            your coach later.
+            Used to estimate your calorie targets. Tune it later with your
+            Coach.
           </Text>
         </View>
 
         <View style={styles.estimateCard}>
           <MaterialCommunityIcons name="creation-outline" size={18} color={theme.colors.primary} />
           <Text style={styles.estimateText}>
-            Your plan is built from our goal library and can be changed anytime
-            — just ask Coach to adjust it.
+            Built from our goal library — ask Coach to adjust it anytime.
           </Text>
         </View>
       </ScrollView>
@@ -200,8 +201,7 @@ export default function GoalsScreen() {
             </View>
             <Text style={styles.overlayTitle}>Building your plan…</Text>
             <Text style={styles.overlaySub}>
-              Consulting the goal library and personalising your habits,
-              nutrition, and sleep targets.
+              Personalising your habits, nutrition, and sleep targets.
             </Text>
           </View>
         </View>

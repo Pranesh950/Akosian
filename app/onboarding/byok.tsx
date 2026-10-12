@@ -6,7 +6,7 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   View,
   Text,
@@ -16,11 +16,13 @@ import {
   TextInput,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { theme } from "../../src/theme";
+import { GradientWash } from "../../src/components/GradientWash";
 import {
   ByokProviderId,
   BYOK_DEFAULTS,
@@ -51,10 +53,11 @@ export default function ByokScreen() {
   const params = useLocalSearchParams<{ from?: string }>();
   const fromOnboarding = params.from === "onboarding";
 
-  const [provider, setProvider] = useState<ByokProviderId>("openai");
+  const [provider, setProvider] = useState<ByokProviderId>("openrouter");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("");
   const [showKey, setShowKey] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -90,6 +93,30 @@ export default function ByokScreen() {
     setTesting(false);
   };
 
+  const openRouterSteps: ReactNode[] = [
+    <>
+      Go to <Text style={styles.guideCode}>openrouter.ai</Text> and create a
+      free account — Google or GitHub sign-in works.
+    </>,
+    <>
+      Open the keys page with the button below and tap{" "}
+      <Text style={styles.guideCode}>Create Key</Text>, then copy it.
+    </>,
+    <>
+      Come back here and paste the key into the{" "}
+      <Text style={styles.guideCode}>API key</Text> field above.
+    </>,
+    <>
+      In the <Text style={styles.guideCode}>Model</Text> field below, type{" "}
+      <Text style={styles.guideCode}>openrouter/free</Text> — a free model
+      router, no payment needed.
+    </>,
+    <>
+      Tap <Text style={styles.guideCode}>Test connection</Text>, then{" "}
+      <Text style={styles.guideCode}>Save &amp; continue</Text>.
+    </>,
+  ];
+
   const handleContinue = async () => {
     if (!apiKey.trim() || saving) return;
     setSaving(true);
@@ -116,6 +143,7 @@ export default function ByokScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
+      <GradientWash color={theme.colors.info} />
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -132,9 +160,8 @@ export default function ByokScreen() {
           </View>
           <Text style={styles.title}>Use your own AI account</Text>
           <Text style={styles.subtitle}>
-            Pick a provider and paste your API key. Your key stays on this
-            device and is sent only to the provider you choose — we never see
-            it and earn nothing from it.
+            Pick a provider and paste your API key. It stays on this device and
+            goes only to that provider — never through us.
           </Text>
         </View>
 
@@ -156,7 +183,14 @@ export default function ByokScreen() {
                     {providerInitial(id)}
                   </Text>
                 </View>
-                <Text style={styles.providerLabel}>{meta.label}</Text>
+                <View style={styles.providerLabelWrap}>
+                  <Text style={styles.providerLabel}>{meta.label}</Text>
+                  {id === "openrouter" && (
+                    <View style={styles.freeBadge}>
+                      <Text style={styles.freeBadgeText}>FREE · RECOMMENDED</Text>
+                    </View>
+                  )}
+                </View>
                 {selected && (
                   <View style={styles.providerCheck}>
                     <MaterialCommunityIcons name="check" size={11} color="#FFFFFF" />
@@ -166,6 +200,49 @@ export default function ByokScreen() {
             );
           })}
         </View>
+
+        {provider === "openrouter" && (
+          <>
+            <TouchableOpacity
+              style={styles.guideLink}
+              onPress={() => setShowGuide((prev) => !prev)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name={showGuide ? "chevron-up" : "help-circle-outline"}
+                size={16}
+                color={theme.colors.info}
+              />
+              <Text style={styles.guideLinkText}>How to set it up</Text>
+            </TouchableOpacity>
+
+            {showGuide && (
+              <View style={styles.guideCard}>
+                <Text style={styles.guideTitle}>Set up OpenRouter in 5 steps</Text>
+                {openRouterSteps.map((step, i) => (
+                  <View key={i} style={styles.guideStep}>
+                    <View style={styles.guideStepNum}>
+                      <Text style={styles.guideStepNumText}>{i + 1}</Text>
+                    </View>
+                    <Text style={styles.guideStepText}>{step}</Text>
+                  </View>
+                ))}
+                <Text style={styles.guideNote}>
+                  Free models allow about 50 requests a day — plenty for daily
+                  coaching. No card required.
+                </Text>
+                <TouchableOpacity
+                  style={styles.guideBtn}
+                  onPress={() => Linking.openURL("https://openrouter.ai/settings/keys")}
+                  activeOpacity={0.85}
+                >
+                  <MaterialCommunityIcons name="open-in-new" size={16} color="#FFFFFF" />
+                  <Text style={styles.guideBtnText}>Open OpenRouter keys page</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
+        )}
 
         <Text style={styles.sectionLabel}>API key</Text>
         <View style={styles.keyInputWrap}>
@@ -238,9 +315,8 @@ export default function ByokScreen() {
         <View style={styles.privacyCard}>
           <MaterialCommunityIcons name="shield-lock-outline" size={18} color={theme.colors.primary} />
           <Text style={styles.privacyText}>
-            Your key is stored encrypted in your device's secure storage and is
-            sent only to the provider you choose — we never see it and earn
-            nothing from it. Before sending anything, the app scrubs common
+            Your key is stored encrypted in secure storage and sent only to
+            the provider you choose. Before any request, we scrub common
             personal identifiers — best-effort, not a guarantee.
           </Text>
         </View>
@@ -358,7 +434,23 @@ const styles = StyleSheet.create({
     color: theme.colors.ink,
     fontFamily: "Nunito_600SemiBold",
     fontWeight: "600",
+  },
+  providerLabelWrap: {
     flex: 1,
+    gap: 4,
+  },
+  freeBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: `${theme.colors.success}18`,
+    borderRadius: theme.radii.pill,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  freeBadgeText: {
+    ...theme.typography.legal,
+    color: theme.colors.success,
+    fontSize: 9,
+    letterSpacing: 0.3,
   },
   providerCheck: {
     width: 18,
@@ -399,6 +491,85 @@ const styles = StyleSheet.create({
     ...theme.typography.legal,
     color: theme.colors.muted,
     marginTop: theme.spacing.xs,
+  },
+  guideLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: theme.spacing.sm,
+    paddingVertical: 6,
+    alignSelf: "flex-start",
+  },
+  guideLinkText: {
+    ...theme.typography.labelMd,
+    color: theme.colors.info,
+  },
+  guideCard: {
+    marginTop: theme.spacing.sm,
+    padding: theme.spacing.md,
+    borderRadius: theme.radii.md,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    ...theme.shadows.cardSoft,
+  },
+  guideTitle: {
+    ...theme.typography.labelMd,
+    color: theme.colors.ink,
+    marginBottom: theme.spacing.sm,
+  },
+  guideStep: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  guideStepNum: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: theme.colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  guideStepNumText: {
+    ...theme.typography.legal,
+    color: theme.colors.ink,
+    fontFamily: "Nunito_700Bold",
+    fontWeight: "700",
+  },
+  guideStepText: {
+    ...theme.typography.bodyMd,
+    color: theme.colors.body,
+    flex: 1,
+    lineHeight: 20,
+  },
+  guideCode: {
+    fontFamily: "Nunito_700Bold",
+    fontWeight: "700",
+    color: theme.colors.ink,
+  },
+  guideNote: {
+    ...theme.typography.legal,
+    color: theme.colors.muted,
+    lineHeight: 16,
+    marginBottom: theme.spacing.sm,
+  },
+  guideBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing.xs,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.radii.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  guideBtnText: {
+    ...theme.typography.labelMd,
+    color: "#FFFFFF",
   },
   testBtn: {
     flexDirection: "row",

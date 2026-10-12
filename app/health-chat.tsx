@@ -21,7 +21,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { theme } from "../src/theme";
+import { theme, formatSleepDuration } from "../src/theme";
 import { useGoBack } from "../src/hooks/useGoBack";
 import { ChatBubble } from "../src/components/ChatBubble";
 import { ThinkingBubble } from "../src/components/ThinkingBubble";
@@ -41,6 +41,13 @@ import {
   type ToolHandler,
   type DisplayMessage,
 } from "../src/services/localLLM";
+import {
+  createAgentChatSession,
+  type AgentChatSession,
+} from "../src/services/ai/chatSession";
+import { HEALTH_AGENT_ENABLED, HEALTH_AGENT_INSTRUCTIONS } from "../src/services/ai/healthTools";
+import { getBodySummary } from "../src/services/bodySummary";
+import { toolActivity, sourcesForTools } from "../src/services/ai/toolLabels";
 import { HealthService, computeStrainScore, computeSleepScore } from "../src/services/health";
 import { getHabitLog, formatDateKey } from "../src/services/journal";
 import { getMeals, getFoodDatabaseAttribution } from "../src/services/foodDatabase";
@@ -61,10 +68,10 @@ ACTIVITY:
 
 BODY & VITALS:
   get_vitals    — {"action":"get_vitals"}                  → blood oxygen, respiratory rate, body temp, blood pressure
-  get_body      — {"action":"get_body"}                    → weight, body fat, lean mass, VO2 max, height
+  get_body      — {"action":"get_body"}                    → weight, height, BMI, body fat, lean mass, VO2 max (with sources; use weightKg for per-kg protein guidance)
 
 RECOVERY:
-  get_sleep     — {"action":"get_sleep", "period":"today"|"week"}  → sleep hours, sleep score
+  get_sleep     — {"action":"get_sleep", "period":"today"|"week"}  → sleep duration (quote sleepDuration/duration verbatim, e.g. 7h 24m), sleep score
   get_recovery  — {"action":"get_recovery"}                          → strain score, sleep score, readiness score, 7-day readiness trend
 
 LIFESTYLE:
@@ -88,6 +95,7 @@ RULES:
 - For today's data use period "today" (or omit period).
 - Connect dots between sleep, activity, nutrition, and vitals in your reply.
 - Be warm, encouraging, concise (2-4 sentences). Mention actual numbers.
+- Always state sleep durations in hours and minutes (e.g. 7h 24m, 8h) — never decimals like 7.4 hours. Quote the sleepDuration/duration fields verbatim.
 - If data is missing, acknowledge it and suggest how to get it.`;
 
 export default function HealthChatScreen() {
@@ -97,13 +105,14 @@ export default function HealthChatScreen() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [activity, setActivity] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [pendingQueue, setPendingQueue] = useState<string[]>([]);
   const [initState, setInitState] = useState<"init" | "downloading" | "ready" | "error">("init");
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [aiDisabled, setAiDisabled] = useState(false);
   const flatRef = useRef<FlatList>(null);
-  const sessionRef = useRef<ChatSession | null>(null);
+  const sessionRef = useRef<ChatSession | AgentChatSession | null>(null);
 
   // Model picker
   const [showModelPicker, setShowModelPicker] = useState(false);
@@ -122,14 +131,16 @@ export default function HealthChatScreen() {
         setInitState("downloading");
         await initializeLLM();
 
-        const session = createChatSession({
-          systemPrompt: HEALTH_SYSTEM_PROMPT,
-          toolHandlers: buildHealthToolHandlers(),
-        });
+        const session: ChatSession | AgentChatSession = HEALTH_AGENT_ENABLED
+          ? createAgentChatSession({ systemPrompt: HEALTH_AGENT_INSTRUCTIONS, kind: "health" })
+          : createChatSession({
+              systemPrompt: HEALTH_SYSTEM_PROMPT,
+              toolHandlers: buildHealthToolHandlers(),
+            });
         sessionRef.current = session;
 
         setInitState("ready");
-        setMessages(extractMessages(session.getHistory()));
+        setMessages([]);
 
         const provider = getStatus();
         if (provider.name.includes("Llama")) {
@@ -169,10 +180,12 @@ export default function HealthChatScreen() {
             // the user just enabled it), so handleSend never drops a message
             // against a null sessionRef.
             if (!sessionRef.current) {
-              sessionRef.current = createChatSession({
-                systemPrompt: HEALTH_SYSTEM_PROMPT,
-                toolHandlers: buildHealthToolHandlers(),
-              });
+              sessionRef.current = HEALTH_AGENT_ENABLED
+                ? createAgentChatSession({ systemPrompt: HEALTH_AGENT_INSTRUCTIONS, kind: "health" })
+                : createChatSession({
+                    systemPrompt: HEALTH_SYSTEM_PROMPT,
+                    toolHandlers: buildHealthToolHandlers(),
+                  });
             }
             setAiDisabled(false);
             setInitState("ready");
@@ -198,10 +211,29 @@ export default function HealthChatScreen() {
     setStreamingText("");
     resetTodaySnapshot();
     try {
-      const history = await sessionRef.current.sendMessage(text, (partial) => {
-        setStreamingText(partial);
-      });
-      setMessages(extractMessages(history));
+      if (HEALTH_AGENT_ENABLED) {
+        const turns = await (sessionRef.current as AgentChatSession).sendMessage(
+          text,
+          (partial) => setStreamingText(partial),
+          (a) => setActivity(a.kind === "tool" ? toolActivity(a.label) : "Thinking…"),
+        );
+        setMessages(
+          turns.map((t) => ({
+            sender: t.role,
+            text: t.text,
+            sources: sourcesForTools(t.tools),
+            reasoning: t.reasoning,
+          })),
+        );
+      } else {
+        const history = await (sessionRef.current as ChatSession).sendMessage(
+          text,
+          (partial) => {
+            setStreamingText(partial);
+          },
+        );
+        setMessages(extractMessages(history));
+      }
     } catch (e) {
       console.warn("[HealthChat] Send failed:", e);
       setMessages((prev) => [
@@ -214,6 +246,7 @@ export default function HealthChatScreen() {
     } finally {
       setLoading(false);
       setStreamingText(null);
+      setActivity(null);
     }
   }, []);
 
@@ -323,8 +356,14 @@ export default function HealthChatScreen() {
   }
 
   // ── Main chat ────────────────────────────────────────────────
+  // Android needs "height": adjustResize no longer resizes the window once
+  // edge-to-edge is enforced (Android 15+, targetSdk 35+), which left the
+  // input bar behind the keyboard. RN's KAV pins its height to the initial
+  // frame, so this also stays correct on devices where adjustResize still
+  // works. No keyboardVerticalOffset: the root Stack uses headerShown:false,
+  // so there is no native header to offset for.
   return (
-    <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top }]} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 44 : insets.bottom}>
+    <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top }]} behavior={Platform.OS === "ios" ? "padding" : "height"}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={handleBack} style={styles.headerIconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -356,7 +395,7 @@ export default function HealthChatScreen() {
         }
         ListFooterComponent={
           loading && !streamingText ? (
-            <ThinkingBubble />
+            <ThinkingBubble label={activity ?? "Thinking"} />
           ) : streamingText != null ? (
             <View style={styles.streamingRow}>
               <View style={styles.streamingAvatar}>
@@ -372,7 +411,7 @@ export default function HealthChatScreen() {
           ) : null
         }
         renderItem={({ item }) => (
-          <ChatBubble sender={item.sender} text={item.text} mealInfo={null} isAction={item.isAction} />
+          <ChatBubble sender={item.sender} text={item.text} mealInfo={null} isAction={item.isAction} sources={item.sources} reasoning={item.reasoning} />
         )}
         onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: true })} onLayout={() => flatRef.current?.scrollToEnd({ animated: false })}
       />
@@ -390,8 +429,8 @@ export default function HealthChatScreen() {
 
       {/* Model picker modal */}
       {showModelPicker && (
-        <View style={styles.modelOverlay}>
-          <View style={styles.modelSheet}>
+        <TouchableOpacity style={styles.modelOverlay} activeOpacity={1} onPress={() => setShowModelPicker(false)}>
+          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={styles.modelSheet}>
             <View style={styles.modelSheetHeader}>
               <Text style={styles.modelSheetTitle}>Choose Model</Text>
               <TouchableOpacity onPress={() => setShowModelPicker(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -415,8 +454,8 @@ export default function HealthChatScreen() {
                 </TouchableOpacity>
               );
             })}
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       )}
     </KeyboardAvoidingView>
   );
@@ -620,15 +659,19 @@ function buildHealthToolHandlers(): Record<string, ToolHandler> {
 
     get_body: async () => {
       try {
-        const data = await getTodaySnapshot();
+        const body = await getBodySummary();
         return {
           toolResult: JSON.stringify({
             tool: "get_body",
-            weightKg: data.weight,
-            heightCm: data.height,
-            bodyFatPercent: data.bodyFat,
-            leanBodyMassKg: data.leanBodyMass,
-            vo2Max: data.vo2Max,
+            weightKg: body.weightKg,
+            weightSource: body.weightSource,
+            ...(body.weightDate ? { weightDate: body.weightDate } : {}),
+            heightCm: body.heightCm,
+            heightSource: body.heightSource,
+            bmi: body.bmi,
+            bodyFatPercent: body.bodyFatPercent,
+            leanBodyMassKg: body.leanBodyMassKg,
+            vo2Max: body.vo2Max,
           }),
         };
       } catch {
@@ -645,7 +688,8 @@ function buildHealthToolHandlers(): Record<string, ToolHandler> {
 
         const result: any = {
           tool: "get_sleep", period: "today",
-          sleepHours: sleepHours ? sleepHours.toFixed(1) : "0.0",
+          sleepHours: sleepHours ? +sleepHours.toFixed(1) : 0,
+          sleepDuration: formatSleepDuration(sleepHours),
           sleepScore,
           // Explicit stage availability so the model answers honestly about
           // REM/deep when the device/wearable doesn't provide stage data,
@@ -655,7 +699,9 @@ function buildHealthToolHandlers(): Record<string, ToolHandler> {
         if (data.sleepHasStages) {
           result.sleepStages = {
             deepHours: +(data.sleepDeepHours ?? 0).toFixed(1),
+            deepDuration: formatSleepDuration(data.sleepDeepHours ?? 0),
             remHours: +(data.sleepRemHours ?? 0).toFixed(1),
+            remDuration: formatSleepDuration(data.sleepRemHours ?? 0),
             awakeMinutes: Math.round((data.sleepAwakeHours ?? 0) * 60),
           };
         }
@@ -667,19 +713,26 @@ function buildHealthToolHandlers(): Record<string, ToolHandler> {
           const history = await HealthService.getSleepHistory(days);
           const nights = history
             .slice(-Math.min(days, 7))
-            .map((h) => ({ date: h.date, hours: +h.value.toFixed(1) }));
+            .map((h) => ({
+              date: h.date,
+              hours: +h.value.toFixed(1),
+              duration: formatSleepDuration(h.value),
+            }));
           result.period = label;
           result.nights = nights;
-          result.averageHours = nights.length
-            ? +(nights.reduce((s, n) => s + n.hours, 0) / nights.length).toFixed(1)
+          const avg = nights.length
+            ? nights.reduce((s, n) => s + n.hours, 0) / nights.length
             : 0;
+          result.averageHours = +avg.toFixed(1);
+          result.averageDuration = formatSleepDuration(avg);
         } else if (dateOffset < 0) {
           // "yesterday" — read that night's total from history rather than today's.
           const date = resolveDate("yesterday");
           const history = await HealthService.getSleepHistory(2);
           const night = history.find((h) => h.date === date);
           result.period = label;
-          result.sleepHours = night ? night.value.toFixed(1) : "0.0";
+          result.sleepHours = night ? +night.value.toFixed(1) : 0;
+          result.sleepDuration = formatSleepDuration(night?.value ?? 0);
           delete result.sleepScore;
           delete result.hasSleepStages;
           delete result.sleepStages;
@@ -811,9 +864,6 @@ const styles = StyleSheet.create({
   modelRowSize: { ...theme.typography.legal, color: theme.colors.muted, marginTop: 2 },
   modelActiveBadge: { width: 32, height: 32, borderRadius: 16, backgroundColor: `${theme.colors.success}15`, alignItems: "center", justifyContent: "center" },
   modelDownloadBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: `${theme.colors.primary}10`, alignItems: "center", justifyContent: "center" },
-  modelProgressWrap: { width: 80 },
-  modelProgressTrack: { height: 6, backgroundColor: theme.colors.border, borderRadius: 3, overflow: "hidden" },
-  modelProgressFill: { height: "100%", backgroundColor: theme.colors.primary, borderRadius: 3 },
   // ── Streaming bubble ─────────────────────────────────────────
   streamingRow: { flexDirection: "row", gap: 10, marginBottom: 12 },
   streamingAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: theme.colors.surfaceElevated, borderWidth: 1, borderColor: theme.colors.border, alignItems: "center", justifyContent: "center", alignSelf: "flex-end" },

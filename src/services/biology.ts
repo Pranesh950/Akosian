@@ -7,6 +7,7 @@
 // (at your option) any later version.
 
 import { DailyActivity, HealthData, MetricSample } from "./health";
+import { formatSleepDuration } from "../theme";
 
 export interface Biomarker {
   id: string;
@@ -413,8 +414,8 @@ export function buildBiomarkers(data: Partial<HealthData>): Biomarker[] {
     markers.push({
       id: "sleep",
       title: "Sleep",
-      value: `${data.sleepHours.toFixed(1)}`,
-      unit: "hrs",
+      value: formatSleepDuration(data.sleepHours),
+      unit: "",
       status: getStatusForValue(data.sleepHours, range),
       icon: range.icon,
       iconColor: range.iconColor,

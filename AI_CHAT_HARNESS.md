@@ -593,9 +593,12 @@ module returns `null`/`[]` rather than throwing:
 RestingHeartRate, HeartRateVariability, RespiratoryRate, SleepAnalysis, ActiveEnergyBurned,
 DistanceWalkingRunning, Weight, Height, BloodPressureSystolic, BloodPressureDiastolic,
 OxygenSaturation, BodyTemperature, Vo2Max, BodyFatPercentage, LeanBodyMass, Workout).
-Health Connect splits into a **core** set (Steps, HeartRate, SleepSession,
-ActiveCaloriesBurned, Distance) requested in one batch and 12 **optional** types requested
-**one at a time**, so one unsupported metric can't abort the connection.
+Health Connect is requested in **two batches**: a **core** set (Steps, HeartRate,
+SleepSession, ActiveCaloriesBurned, Distance) and then all 12 **optional** types in a
+single consent screen. Per-type fallback requests only run if the optional batch throws
+(an unsupported record type on older Health Connect builds), so one bad metric can't
+abort the connection — but the happy path shows just two system dialogs instead of one
+per record type, which previously made the same permission-group popup repeat ~10×.
 
 **Authorisation semantics.** `_doInitialize(true)` is the only path that prompts (iOS:
 `initHealthKit` *is* the prompt; Android: `getSdkStatus` check → `initialize` →

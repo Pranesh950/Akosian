@@ -24,6 +24,7 @@ import { BandGauge } from "../../src/components/BandGauge";
 import { StrainAreaChart } from "../../src/components/StrainAreaChart";
 import { RefreshButton } from "../../src/components/RefreshButton";
 import { theme, formatFriendlyDate } from "../../src/theme";
+import { GradientWash } from "../../src/components/GradientWash";
 import { getDistanceUnit, formatDistance, type DistanceUnit } from "../../src/services/units";
 
 function fmt(value: number | null | undefined, digits = 0): string {
@@ -57,7 +58,9 @@ function SnapshotCard({ label, value, unit, icon, color }: SnapshotCardProps) {
   return (
     <View style={styles.snapshotCard}>
       <View style={styles.snapshotTop}>
-        <MaterialCommunityIcons name={icon} size={18} color={color} />
+        <View style={[styles.snapshotIcon, { backgroundColor: `${color}14` }]}>
+          <MaterialCommunityIcons name={icon} size={16} color={color} />
+        </View>
         <Text style={styles.snapshotLabel}>{label}</Text>
       </View>
       <View style={styles.snapshotValueRow}>
@@ -146,6 +149,7 @@ export default function StrainDetailScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <GradientWash color={theme.colors.strain} />
       <View style={styles.header}>
         <TouchableOpacity
           onPress={handleBack}
@@ -342,7 +346,7 @@ const styles = StyleSheet.create({
   hero: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: theme.colors.card,
+    backgroundColor: `${theme.colors.strain}10`,
     borderRadius: theme.radii.lg,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -398,6 +402,13 @@ const styles = StyleSheet.create({
     ...theme.typography.legal,
     color: theme.colors.muted,
     textTransform: "uppercase",
+  },
+  snapshotIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
   snapshotValueRow: {
     flexDirection: "row",
