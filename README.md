@@ -17,7 +17,7 @@ No Akosian account. No subscription. No ads. Open source.
 
 **Android closed beta · iOS public testing link not available yet**
 
-<img src="assets/brand/readme-hero.svg" alt="Akosian: Your health. Your phone. Your rules. Free, open source, local-first. Illustrated readiness, sleep, and food cards—not actual app screenshots." width="100%" />
+<img src="assets/brand/readme-hero.svg?v=2" alt="Akosian: Your health. Your phone. Your rules. Free, open source, local-first. Illustrated readiness, sleep, and food cards—not actual app screenshots." width="100%" />
 
 **Your health data belongs with you. Not behind a monthly paywall.**
 
