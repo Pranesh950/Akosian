@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
-  <title id="title">Myrri — health should be private and free</title>
+  <title id="title">Akosian — health should be private and free</title>
   <desc id="desc">A cream and coral banner: Your health. Your phone. Your rules. Free, open source, local-first. Illustrative cards show readiness, sleep, and food logging; they are not actual app screenshots.</desc>
   <defs>
     <linearGradient id="wash" x1="0" y1="0" x2="1" y2="1">
@@ -13,7 +13,7 @@
   <g font-family="Arial, Helvetica, sans-serif">
     <rect x="64" y="58" width="44" height="44" rx="14" fill="#E56F63"/>
     <path d="M76 80h6l4-10 5 20 4-10h6" fill="none" stroke="#FFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-    <text x="122" y="91" font-size="34" font-weight="700" fill="#25272D">Myrri</text>
+    <text x="122" y="91" font-size="34" font-weight="700" fill="#25272D">Akosian</text>
     <text x="64" y="178" font-size="15" font-weight="700" letter-spacing="3" fill="#9A4942">HEALTH SHOULD BE PRIVATE AND FREE.</text>
     <g font-size="66" font-weight="700" fill="#25272D">
       <text x="60" y="264">Your health.</text>

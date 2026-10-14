@@ -1,4 +1,4 @@
-# The Myrri AI Chat Harness — How It Actually Works
+# The Akosian AI Chat Harness — How It Actually Works
 
 > Scope: everything that happens between a user typing into `app/health-chat.tsx` or
 > `app/food-chat.tsx` and an answer appearing on screen — provider selection, the
@@ -781,7 +781,7 @@ health values themselves (that is the point of the feature), free-text journal n
 any identifier the user types in a phrasing the regexes don't cover.
 
 The BYOK key is stored only in the device keystore (`byok_config_v1`), is sent only to the
-chosen provider, and is never transmitted to Myrri's own servers (there are none in this
+chosen provider, and is never transmitted to Akosian's own servers (there are none in this
 path).
 
 ---

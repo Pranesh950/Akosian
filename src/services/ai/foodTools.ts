@@ -1,4 +1,4 @@
-// Myrri Health
+// Akosian
 // Copyright (C) 2026 Pranesh Shivaraj
 //
 // This program is free software: you can redistribute it and/or modify
@@ -39,9 +39,11 @@ import { formatDateKey } from "../journal";
 /**
  * Master switch for the migrated food agent. Defaults to OFF so nothing about the
  * current chat changes until a native dev build passes the Phase 0 spike.
- * Enable with `EXPO_PUBLIC_MYRRI_FOOD_AGENT=1` (Expo inlines EXPO_PUBLIC_* at build time).
+ * Enable with `EXPO_PUBLIC_AKOSIAN_FOOD_AGENT=1` (Expo inlines EXPO_PUBLIC_* at build time).
  */
-export const FOOD_AGENT_ENABLED = process.env.EXPO_PUBLIC_MYRRI_FOOD_AGENT === "1";
+export const FOOD_AGENT_ENABLED =
+  process.env.EXPO_PUBLIC_AKOSIAN_FOOD_AGENT === "1" ||
+  process.env.EXPO_PUBLIC_MYRRI_FOOD_AGENT === "1";
 
 export const FOOD_AGENT_INSTRUCTIONS = `You are a nutrition assistant for a mobile app. Help users log food they ate.
 

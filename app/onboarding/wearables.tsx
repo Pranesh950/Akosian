@@ -1,4 +1,4 @@
-// Myrri Health
+// Akosian
 // Copyright (C) 2026 Pranesh Shivaraj
 //
 // This program is free software: you can redistribute it and/or modify
@@ -464,7 +464,7 @@ const ANDROID_SYSTEM_STEPS: Step[] = [
   {
     title: "Allow access for this app",
     description:
-      "In Health Connect, find this app ('Myrri') under 'App permissions' or 'Data sources and access', and turn on read access for Steps, HR, Sleep, Distance, and Calories.",
+      "In Health Connect, find this app ('Akosian') under 'App permissions' or 'Data sources and access', and turn on read access for Steps, HR, Sleep, Distance, and Calories.",
   },
 ];
 
@@ -480,9 +480,9 @@ const IOS_SYSTEM_STEPS: Step[] = [
       "In Settings, open Health > Data Access & Devices. In the Health app, tap your profile picture (top right) > Apps instead.",
   },
   {
-    title: "Find Myrri",
+    title: "Find Akosian",
     description:
-      "Tap Myrri and turn on the categories you want to share (Steps, Heart Rate, Sleep, etc.).",
+      "Tap Akosian and turn on the categories you want to share (Steps, Heart Rate, Sleep, etc.).",
   },
 ];
 
@@ -505,7 +505,7 @@ async function openSystemHealthConnect() {
     } catch {}
     await Linking.openSettings();
   } else {
-    // On iOS, Health access lives in the Health app — Myrri's own Settings page
+    // On iOS, Health access lives in the Health app — Akosian's own Settings page
     // has nothing to toggle — so prefer the Health app and only fall back to
     // app settings if the deep link is unavailable.
     try {

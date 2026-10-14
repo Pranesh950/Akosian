@@ -1,4 +1,4 @@
-# Rebuilding the Myrri AI Chat — Research & Recommendation
+# Rebuilding the Akosian AI Chat — Research & Recommendation
 
 > Companion to [`AI_CHAT_HARNESS.md`](./AI_CHAT_HARNESS.md), which documents how the current
 > hand-rolled harness works and lists its 16 weaknesses. This document answers: **what should
@@ -267,7 +267,7 @@ prompts to tone/rules only.
 
 ## 6. What to keep, deliberately
 
-- **The tool handlers are the product.** They encode Myrri's domain knowledge (wearable
+- **The tool handlers are the product.** They encode Akosian's domain knowledge (wearable
   double-counting rules, OpenNutrition FTS5, plan sanitisers, readiness math). AI SDK doesn't
   replace any of it — it just calls it properly.
 - **The prompts' *rules*.** "Never guess data", "connect the dots", "be concise" — these stay.

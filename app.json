@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "Myrri",
+    "name": "Akosian",
     "slug": "health-app",
     "version": "1.0.0",
-    "scheme": "myrri",
+    "scheme": "akosian",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -94,7 +94,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Myrri to use the camera to scan food product barcodes."
+          "cameraPermission": "Allow Akosian to use the camera to scan food product barcodes."
         }
       ]
     ],

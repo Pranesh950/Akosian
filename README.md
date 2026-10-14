@@ -1,45 +1,45 @@
 <div align="center">
 
-<img src="assets/icon.png" alt="Myrri app icon" width="88" height="88" />
+<img src="assets/icon.png" alt="Akosian app icon" width="88" height="88" />
 
-# Myrri
+# Akosian
 
 ### Health should be private. And free.
 
 **Your body is not a business model.**
 
 Sleep, recovery, food, habits, and an optional AI coach.<br />
-No Myrri account. No subscription. No ads. Open source.
+No Akosian account. No subscription. No ads. Open source.
 
-[![Join the Android beta](https://img.shields.io/badge/Join_the_Android_beta-3DDC84?style=for-the-badge&logo=android&logoColor=202126)](#get-myrri-on-android)
-[![Star Myrri](https://img.shields.io/github/stars/Pranesh950/Myrri-Health?style=for-the-badge&logo=github&label=Star%20Myrri&color=E56F63)](https://github.com/Pranesh950/Myrri-Health)
+[![Join the Android beta](https://img.shields.io/badge/Join_the_Android_beta-3DDC84?style=for-the-badge&logo=android&logoColor=202126)](#get-akosian-on-android)
+[![Star Akosian](https://img.shields.io/github/stars/Pranesh950/Akosian-Health?style=for-the-badge&logo=github&label=Star%20Akosian&color=E56F63)](https://github.com/Pranesh950/Akosian-Health)
 [![License: GPL v3](https://img.shields.io/badge/Open_source-GPLv3-202126?style=for-the-badge)](LICENSE)
 
 **Android closed beta · iOS public testing link not available yet**
 
-<img src="assets/brand/readme-hero.svg" alt="Myrri: Your health. Your phone. Your rules. Free, open source, local-first. Illustrated readiness, sleep, and food cards—not actual app screenshots." width="100%" />
+<img src="assets/brand/readme-hero.svg" alt="Akosian: Your health. Your phone. Your rules. Free, open source, local-first. Illustrated readiness, sleep, and food cards—not actual app screenshots." width="100%" />
 
 **Your health data belongs with you. Not behind a monthly paywall.**
 
-[Get the Android beta](#get-myrri-on-android) · [What it does](#what-you-can-do) · [Privacy, plainly](#privacy-plainly) · [Build it yourself](#build-it-yourself)
+[Get the Android beta](#get-akosian-on-android) · [What it does](#what-you-can-do) · [Privacy, plainly](#privacy-plainly) · [Build it yourself](#build-it-yourself)
 
 </div>
 
-## Get Myrri on Android
+## Get Akosian on Android
 
 **Three links. One Google account. Follow them in order.**
 
 | 1 · Join the group | 2 · Become a tester | 3 · Install the app |
 | :--- | :--- | :--- |
-| [**Join Myrri testers →**](https://groups.google.com/g/myrri) | [**Open the beta opt-in →**](https://play.google.com/apps/testing/com.myrri.app) | [**Download on Google Play →**](https://play.google.com/store/apps/details?id=com.myrri.app) |
+| [**Join Akosian testers →**](https://groups.google.com/g/akosian) | [**Open the beta opt-in →**](https://play.google.com/apps/testing/com.myrri.app) | [**Download on Google Play →**](https://play.google.com/store/apps/details?id=com.myrri.app) |
 | Sign in and choose **Join group**, or request membership if approval is required. | Once you're a group member, tap **Become a tester**. | Open the listing with the same account and tap **Install**. |
 
-> **Important:** use the **same Google account** for the group, the tester opt-in, and Google Play. Google requires an account for beta access; **Myrri itself does not require an account**.
+> **Important:** use the **same Google account** for the group, the tester opt-in, and Google Play. Google requires an account for beta access; **Akosian itself does not require an account**.
 
 <details>
 <summary><strong>Can't join, see the app, or install? Start here.</strong></summary>
 
-- **Group says “Content unavailable”?** Sign in to Google, check the selected account, and reopen [the group](https://groups.google.com/g/myrri). If it still fails, [email the maintainer](mailto:pranesh.shivaraj.k@gmail.com?subject=Myrri%20Android%20beta%20access) for help. Don't post your email or health data in a public issue.
+- **Group says “Content unavailable”?** Sign in to Google, check the selected account, and reopen [the group](https://groups.google.com/g/akosian). If it still fails, [email the maintainer](mailto:pranesh.shivaraj.k@gmail.com?subject=Akosian%20Android%20beta%20access) for help. Don't post your email or health data in a public issue.
 - **You requested membership?** Wait for approval before opening the tester opt-in link. A pending request is not membership.
 - **“App not available for this account”?** Check that you joined the group and accepted the beta using the account selected in your Play Store. Reopen the opt-in page, then the store listing.
 - **Still unavailable?** Closed-test access, supported devices, and country availability are controlled in Google Play. Send the maintainer the error text and your phone model; no health records needed.
@@ -47,21 +47,21 @@ No Myrri account. No subscription. No ads. Open source.
 
 </details>
 
-**Want to help get Myrri out of closed testing?** Join, opt in, and try it in your normal routine. Google Play's production-access process can require at least **12 testers opted in continuously for 14 days**; eligibility and approval are determined by Google. Honest bug reports and real-world feedback matter more than perfect reviews.
+**Want to help get Akosian out of closed testing?** Join, opt in, and try it in your normal routine. Google Play's production-access process can require at least **12 testers opted in continuously for 14 days**; eligibility and approval are determined by Google. Honest bug reports and real-world feedback matter more than perfect reviews.
 
-**On iPhone?** There is no public TestFlight link listed yet. Watch this repository's [releases](https://github.com/Pranesh950/Myrri-Health/releases) for availability. A GitHub star is appreciated, but it doesn't subscribe you to release notifications.
+**On iPhone?** There is no public TestFlight link listed yet. Watch this repository's [releases](https://github.com/Pranesh950/Akosian-Health/releases) for availability. A GitHub star is appreciated, but it doesn't subscribe you to release notifications.
 
 ## Your health. Your phone. Your rules.
 
 You already generated the data. You should be able to understand it without another subscription.
 
-Myrri brings your health signals, meals, and everyday habits together in a **free, local-first wellness app**. Connect Apple Health or Android Health Connect, or start with manual tracking. Choose on-device AI, your own cloud API key, or no AI at all.
+Akosian brings your health signals, meals, and everyday habits together in a **free, local-first wellness app**. Connect Apple Health or Android Health Connect, or start with manual tracking. Choose on-device AI, your own cloud API key, or no AI at all.
 
-| What you shouldn't have to trade | The Myrri approach |
+| What you shouldn't have to trade | The Akosian approach |
 | :--- | :--- |
-| **Money just to access core features** | No Myrri subscription or feature paywall. Optional cloud AI may cost money through your provider. |
+| **Money just to access core features** | No Akosian subscription or feature paywall. Optional cloud AI may cost money through your provider. |
 | **Your privacy for a dashboard** | Core records and calculations stay on your device. Cloud AI is an explicit choice, not a requirement. |
-| **An email address to start tracking** | No Myrri signup. Open the app and get started. |
+| **An email address to start tracking** | No Akosian signup. Open the app and get started. |
 | **A new wearable to participate** | Use compatible data from the wearable you own, or log manually. |
 | **Blind trust in a black box** | GPLv3 source code you can inspect, modify, and build yourself. |
 
@@ -83,11 +83,11 @@ Myrri brings your health signals, meals, and everyday habits together in a **fre
 | **On-device AI** | Your phone | Supported Apple/Gemini Nano system models or a downloaded local model. Inference stays local; initial model setup may need internet, storage, and a capable device. |
 | **Bring your own key** | Your chosen cloud provider | Supports OpenAI, Anthropic, Gemini, and OpenRouter. Chat and relevant context leave your phone; provider pricing and privacy terms apply. Keys use OS secure storage. |
 
-**The app is free. Optional third-party AI usage is not necessarily free.** Small local models can be slower and less capable than cloud models. You can use Myrri without either.
+**The app is free. Optional third-party AI usage is not necessarily free.** Small local models can be slower and less capable than cloud models. You can use Akosian without either.
 
 ### Works with the data you already have
 
-Myrri reads **Apple Health on iOS** and **Health Connect on Android**, with your permission. It doesn't connect directly to each wearable.
+Akosian reads **Apple Health on iOS** and **Health Connect on Android**, with your permission. It doesn't connect directly to each wearable.
 
 Apple Watch, Galaxy Watch, Pixel Watch, Garmin, Fitbit, Oura, WHOOP, and other devices can supply data **where their companion apps support syncing to your platform's health store**. Support varies by vendor, region, OS, and metric; some setups need a bridge. Having a supported brand does not guarantee every metric is available.
 
@@ -97,12 +97,12 @@ No wearable? Start with manual meals, habits, and supported manual metrics. Read
 
 **Private by default is a product decision, not a badge.**
 
-- **No Myrri account, backend, ads, or analytics SDKs.**
+- **No Akosian account, backend, ads, or analytics SDKs.**
 - Core health records, journals, meals, and settings use **on-device storage**.
 - Health permissions are your choice. Revoke them in Apple Health or Health Connect.
 - **On-device AI inference stays on-device.** Model downloads and app-store services still need network access.
 - **Cloud AI is optional.** When enabled, your chat and relevant context go directly to your selected provider. Identifier scrubbing is best-effort—not a guarantee of anonymity, and not removal of all sensitive health information.
-- API keys are kept in **OS secure storage**, not a Myrri server. Your provider's billing and retention policies still apply.
+- API keys are kept in **OS secure storage**, not a Akosian server. Your provider's billing and retention policies still apply.
 
 Read the [full privacy policy](PRIVACY_POLICY.md) and inspect the [source](src/services). Keep private health information out of public bug reports and the tester group.
 
@@ -110,16 +110,16 @@ Read the [full privacy policy](PRIVACY_POLICY.md) and inspect the [source](src/s
 
 You don't need to code to help.
 
-1. **Try the [Android beta](#get-myrri-on-android).** Tell us what broke, what confused you, and what actually helped.
-2. **[Star the repository](https://github.com/Pranesh950/Myrri-Health).** Help other people discover an open-source alternative.
+1. **Try the [Android beta](#get-akosian-on-android).** Tell us what broke, what confused you, and what actually helped.
+2. **[Star the repository](https://github.com/Pranesh950/Akosian-Health).** Help other people discover an open-source alternative.
 3. **Send it to one friend** who cares about privacy, tracks their sleep, or is tired of subscription-only health tools.
 
 **A message you can copy:**
 
-> Health should be private and free. Myrri is an open-source health app for sleep, recovery, food, and habits—with optional on-device AI, no Myrri account, and no subscription. Android beta signup: https://github.com/Pranesh950/Myrri-Health#get-myrri-on-android
+> Health should be private and free. Akosian is an open-source health app for sleep, recovery, food, and habits—with optional on-device AI, no Akosian account, and no subscription. Android beta signup: https://github.com/Pranesh950/Akosian-Health#get-akosian-on-android
 
-[![Share on X](https://img.shields.io/badge/Share_on_X-202126?style=for-the-badge&logo=x&logoColor=white)](https://twitter.com/intent/tweet?text=Health%20should%20be%20private%20and%20free.%20Myrri%20is%20an%20open-source%20health%20app%20with%20no%20subscription%20and%20optional%20on-device%20AI.%20Try%20the%20Android%20beta%3A&url=https%3A%2F%2Fgithub.com%2FPranesh950%2FMyrri-Health%23get-myrri-on-android)
-[![Share on WhatsApp](https://img.shields.io/badge/Send_to_a_friend-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://wa.me/?text=Health%20should%20be%20private%20and%20free.%20Try%20Myrri%2C%20an%20open-source%20health%20app%20with%20no%20subscription%20and%20optional%20on-device%20AI%3A%20https%3A%2F%2Fgithub.com%2FPranesh950%2FMyrri-Health%23get-myrri-on-android)
+[![Share on X](https://img.shields.io/badge/Share_on_X-202126?style=for-the-badge&logo=x&logoColor=white)](https://twitter.com/intent/tweet?text=Health%20should%20be%20private%20and%20free.%20Akosian%20is%20an%20open-source%20health%20app%20with%20no%20subscription%20and%20optional%20on-device%20AI.%20Try%20the%20Android%20beta%3A&url=https%3A%2F%2Fgithub.com%2FPranesh950%2FAkosian-Health%23get-akosian-on-android)
+[![Share on WhatsApp](https://img.shields.io/badge/Send_to_a_friend-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://wa.me/?text=Health%20should%20be%20private%20and%20free.%20Try%20Akosian%2C%20an%20open-source%20health%20app%20with%20no%20subscription%20and%20optional%20on-device%20AI%3A%20https%3A%2F%2Fgithub.com%2FPranesh950%2FAkosian-Health%23get-akosian-on-android)
 
 **Please share the signup section, not just the Play Store listing.** Closed-beta users need group membership and the tester opt-in before they can install.
 
@@ -130,8 +130,8 @@ You don't need to code to help.
 Prerequisites: Node **20.19+**, npm, and Android Studio or Xcode for local native builds. EAS builds require your own Expo project and signing credentials. This is a **native app**; Expo Go cannot load its health and AI native modules.
 
 ```bash
-git clone https://github.com/Pranesh950/Myrri-Health.git
-cd Myrri-Health
+git clone https://github.com/Pranesh950/Akosian-Health.git
+cd Akosian-Health
 npm install
 
 # Typecheck
@@ -160,7 +160,7 @@ Nutrition data attribution: [OpenNutrition](src/data/OPENNUTRITION_ATTRIBUTION.m
 
 ## Contribute
 
-[Report a bug or suggest a feature](https://github.com/Pranesh950/Myrri-Health/issues) · [Browse the source](https://github.com/Pranesh950/Myrri-Health) · [Read the license](LICENSE)
+[Report a bug or suggest a feature](https://github.com/Pranesh950/Akosian-Health/issues) · [Browse the source](https://github.com/Pranesh950/Akosian-Health) · [Read the license](LICENSE)
 
 Code, design, documentation, translations, accessibility improvements, and nutrition-data fixes are welcome. For a bug report, include your phone model, OS version, app version, and steps to reproduce. **Remove health data, API keys, and personal details from screenshots and logs.**
 
@@ -170,11 +170,11 @@ Code, design, documentation, translations, accessibility improvements, and nutri
 - More device testing and on-device AI improvements.
 - More languages and accessibility polish.
 
-Have a different priority? [Open an issue](https://github.com/Pranesh950/Myrri-Health/issues).
+Have a different priority? [Open an issue](https://github.com/Pranesh950/Akosian-Health/issues).
 
 ## A few honest limits
 
-- Myrri is a **wellness app, not a medical device**. Scores and AI responses are informational and can be wrong. They are not medical advice or a substitute for professional care.
+- Akosian is a **wellness app, not a medical device**. Scores and AI responses are informational and can be wrong. They are not medical advice or a substitute for professional care.
 - Wearable data quality and sync support vary. Missing inputs mean missing or less confident insights.
 - The offline food database and barcode coverage aren't exhaustive. Check portions and nutrition estimates.
 - On-device AI availability, speed, and memory requirements vary by phone. Core tracking works without it.
@@ -182,7 +182,7 @@ Have a different priority? [Open an issue](https://github.com/Pranesh950/Myrri-H
 
 ## License
 
-[GNU GPL v3](LICENSE), or any later version, under the terms in the license. You can inspect, modify, and redistribute the software under those terms. Provided **without warranty**. Third-party names belong to their respective owners; Myrri is not affiliated with the wearable or AI companies mentioned here.
+[GNU GPL v3](LICENSE), or any later version, under the terms in the license. You can inspect, modify, and redistribute the software under those terms. Provided **without warranty**. Third-party names belong to their respective owners; Akosian is not affiliated with the wearable or AI companies mentioned here.
 
 ---
 
@@ -192,7 +192,7 @@ Have a different priority? [Open an issue](https://github.com/Pranesh950/Myrri-H
 
 **If that sounds like the future you want, help build it.**
 
-[Join the Android beta](#get-myrri-on-android) · [Star Myrri](https://github.com/Pranesh950/Myrri-Health) · [Share with a friend](#help-make-private-health-the-default)
+[Join the Android beta](#get-akosian-on-android) · [Star Akosian](https://github.com/Pranesh950/Akosian-Health) · [Share with a friend](#help-make-private-health-the-default)
 
 <sub>Built by Pranesh Shivaraj. For people, not data brokers.</sub>
 

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- Myrri "Everwave" — one wave-line, endlessly looping. -->
+  <!-- Akosian "Everwave" — one wave-line, endlessly looping. -->
   <defs>
     <linearGradient id="everwave-coral" x1="213" y1="378" x2="811" y2="646" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#F0B1A6"/>

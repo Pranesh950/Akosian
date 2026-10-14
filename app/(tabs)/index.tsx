@@ -1,4 +1,4 @@
-// Myrri Health
+// Akosian
 // Copyright (C) 2026 Pranesh Shivaraj
 //
 // This program is free software: you can redistribute it and/or modify
@@ -180,7 +180,7 @@ export default function HomeScreen() {
         Alert.alert(
           conn === "connected_no_data" ? "No new data yet" : "Sync failed",
           needsHealthSetup
-            ? "Myrri can't read your health data yet — connect your health data first, then tap Sync again."
+            ? "Akosian can't read your health data yet — connect your health data first, then tap Sync again."
             : "We couldn't pull any new data. Turn on Bluetooth and make sure your wearable is connected and syncing in its companion app, then tap Sync again."
         );
       }
@@ -200,14 +200,14 @@ export default function HomeScreen() {
       if (status === "unavailable") {
         Alert.alert(
           "Apple Health not available",
-          "HealthKit needs a development or App Store build — it does not work in Expo Go. You can keep using Myrri with manual logging in the meantime."
+          "HealthKit needs a development or App Store build — it does not work in Expo Go. You can keep using Akosian with manual logging in the meantime."
         );
         return;
       }
       if (status === "access_requested" || status === "connected_no_data") {
         Alert.alert(
           "Review access in the Health app",
-          "Apple does not tell apps which read types you allowed. Open Health → Sharing → Apps → Myrri to review or change access, then come back and pull to refresh.",
+          "Apple does not tell apps which read types you allowed. Open Health → Sharing → Apps → Akosian to review or change access, then come back and pull to refresh.",
           [
             { text: "Not now", style: "cancel" },
             {
@@ -234,7 +234,7 @@ export default function HomeScreen() {
       Alert.alert(
         "Health access could not be requested",
         Platform.OS === "ios"
-          ? "HealthKit is unavailable in this build or on this device. You can continue using Myrri with manual logging."
+          ? "HealthKit is unavailable in this build or on this device. You can continue using Akosian with manual logging."
           : "Health Connect is unavailable right now. Install or update Health Connect, then tap Connect again."
       );
     }

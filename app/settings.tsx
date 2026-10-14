@@ -1,4 +1,4 @@
-// Myrri Health
+// Akosian
 // Copyright (C) 2026 Pranesh Shivaraj
 //
 // This program is free software: you can redistribute it and/or modify
@@ -226,7 +226,7 @@ export default function SettingsScreen() {
           Alert.alert(
             "Health access could not be requested",
             Platform.OS === "ios"
-              ? "HealthKit is unavailable in this build or on this device. You can keep using Myrri with manual logging."
+              ? "HealthKit is unavailable in this build or on this device. You can keep using Akosian with manual logging."
               : "Health Connect is unavailable right now. Install or update Health Connect, then try again."
           );
         }
@@ -534,7 +534,7 @@ export default function SettingsScreen() {
             <MaterialCommunityIcons name="dna" size={20} color={theme.colors.ink} />
           </View>
           <View style={styles.rowCopy}>
-            <Text style={styles.rowTitle}>Myrri</Text>
+            <Text style={styles.rowTitle}>Akosian</Text>
             <Text style={styles.rowSub}>Version {version} · PolyForm Noncommercial</Text>
           </View>
         </View>

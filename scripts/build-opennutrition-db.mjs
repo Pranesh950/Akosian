@@ -14,7 +14,7 @@ const TEMP_PATH = path.resolve(`.opennutrition-dataset-${RELEASE}.zip`);
 
 function get(url) {
   return new Promise((resolve, reject) => {
-    const request = https.get(url, { headers: { "User-Agent": "health-app-opennutrition-build" } }, (response) => {
+    const request = https.get(url, { headers: { "User-Agent": "akosian-opennutrition-build" } }, (response) => {
       if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
         response.resume();
         get(response.headers.location).then(resolve, reject);

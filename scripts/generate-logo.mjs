@@ -1,4 +1,4 @@
-// Myrri Health
+// Akosian
 // Copyright (C) 2026 Pranesh Shivaraj
 //
 // This program is free software: you can redistribute it and/or modify
@@ -95,7 +95,7 @@ function buildSvg({ stroke = "gradient", bg = "ocean", scale = 1 } = {}) {
       : ` transform="translate(${CX} ${CY}) scale(${scale}) translate(${-CX} ${-CY})"`;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- Myrri "Everwave" — one wave-line, endlessly looping. -->
+  <!-- Akosian "Everwave" — one wave-line, endlessly looping. -->
   <defs>
     <linearGradient id="everwave-coral" x1="${BBOX.x0}" y1="${BBOX.y0}" x2="${BBOX.x1}" y2="${BBOX.y1}" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="${PEACH}"/>

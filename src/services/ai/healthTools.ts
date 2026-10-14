@@ -1,4 +1,4 @@
-// Myrri Health
+// Akosian
 // Copyright (C) 2026 Pranesh Shivaraj
 //
 // This program is free software: you can redistribute it and/or modify
@@ -28,7 +28,9 @@ import { calculateReadiness } from "../readiness";
 import { getReadinessHistory } from "../insights";
 import { buildCoachChatToolHandlers } from "../coachPlan";
 
-export const HEALTH_AGENT_ENABLED = process.env.EXPO_PUBLIC_MYRRI_HEALTH_AGENT === "1";
+export const HEALTH_AGENT_ENABLED =
+  process.env.EXPO_PUBLIC_AKOSIAN_HEALTH_AGENT === "1" ||
+  process.env.EXPO_PUBLIC_MYRRI_HEALTH_AGENT === "1";
 
 export const HEALTH_AGENT_INSTRUCTIONS = `You are a health coach AI. You have access to the user's health data through tools. ALWAYS call the right tool before answering — never make up numbers.
 

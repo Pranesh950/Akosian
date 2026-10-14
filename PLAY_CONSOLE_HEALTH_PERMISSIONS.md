@@ -1,7 +1,7 @@
 # Health Connect Permission Declarations
 
 Answers for the Google Play Console **Health data permissions** form (Step 2 of 3).
-Myrri only **reads** health data — it never writes to Health Connect. All processing happens locally on-device; no health data is uploaded, sold, or shared.
+Akosian only **reads** health data — it never writes to Health Connect. All processing happens locally on-device; no health data is uploaded, sold, or shared.
 
 ---
 

@@ -1,6 +1,6 @@
 # Rebuilding the Android dev client after Health Connect fixes
 
-The old `health-app.apk` may still contain the previous Health Connect native configuration. This fix uses the `expo-health-connect` plugin for the permission delegate and removes the duplicate custom activity patch.
+The old `akosian.apk` may still contain the previous Health Connect native configuration. This fix uses the `expo-health-connect` plugin for the permission delegate and removes the duplicate custom activity patch.
 
 The original failure looked like this:
 
@@ -46,7 +46,7 @@ npx expo start --tunnel
 2. Install it on your Android device (you may need to allow installs from unknown sources).
 3. Open the **new** dev client and scan the QR code from the terminal.
 
-**Do not use the old `health-app.apk` file in the repo.**
+**Do not use the old `akosian.apk` file in the repo.**
 
 ## Why this is required
 

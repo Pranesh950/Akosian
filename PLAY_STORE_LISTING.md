@@ -1,11 +1,11 @@
-# 🧬 Myrri — Google Play Store Listing (ASO / AEO-optimized)
+# 🧬 Akosian — Google Play Store Listing (ASO / AEO-optimized)
 
 Draft copy for the Google Play Console listing, optimized for **ASO** (Google Play search ranking) and **AEO** (AI app discovery — Google Play Guided Search, AI Overviews, and LLM assistants that parse your listing).
 
 **Current status:**
 | Field | Limit | Draft | Chars |
 |---|---|---|---|
-| App name | 30 | Myrri - AI health coach | 23 ✓ |
+| App name | 30 | Akosian - AI health coach | 23 ✓ |
 | Short description | 80 | *(see below)* | — |
 | Full description | 4000 | *(see below)* | — |
 
@@ -13,7 +13,7 @@ Draft copy for the Google Play Console listing, optimized for **ASO** (Google Pl
 
 ---
 
-## 1. App name — `Myrri - AI health coach` (23 / 30)
+## 1. App name — `Akosian - AI health coach` (23 / 30)
 
 The app name is the **single highest-weighted ranking factor** on Google Play, so it should be `Brand + one high-intent primary keyword`. "AI health coach" is the best primary keyword for this app.
 
@@ -25,12 +25,12 @@ The app name is the **single highest-weighted ranking factor** on Google Play, s
 
 | Option | Chars | Why |
 |---|---|---|
-| `Myrri - AI health coach` | 23 | **Current.** Clean, brand-first. |
-| `Myrri: AI Health Coach` | 22 | Colon + capitalization matches the recommended `Brand: Keyword` formula exactly. |
-| `Myrri AI Coach - Health & Fitness` | 33 ✗ | Too long — dropped. |
-| `Myrri: AI Health & Fitness Coach` | 32 ✗ | Too long — dropped. |
+| `Akosian - AI health coach` | 23 | **Current.** Clean, brand-first. |
+| `Akosian: AI Health Coach` | 22 | Colon + capitalization matches the recommended `Brand: Keyword` formula exactly. |
+| `Akosian AI Coach - Health & Fitness` | 33 ✗ | Too long — dropped. |
+| `Akosian: AI Health & Fitness Coach` | 32 ✗ | Too long — dropped. |
 
-**Recommendation:** keep `Myrri - AI health coach`. It fits the formula, stays readable, and leaves headroom. Don't add more keywords — the short + full description cover them.
+**Recommendation:** keep `Akosian - AI health coach`. It fits the formula, stays readable, and leaves headroom. Don't add more keywords — the short + full description cover them.
 
 ---
 
@@ -65,9 +65,9 @@ Fully indexed by Google Play. **Front-load the primary keywords in the first 250
 
 ---
 
-**Myrri is your private AI health coach. It turns your health data into a daily morning brief, WHOOP-style readiness and strain scores, sleep insights, a biological age estimate, and an AI coach that actually knows your body — all without a subscription, account, or ads.**
+**Akosian is your private AI health coach. It turns your health data into a daily morning brief, WHOOP-style readiness and strain scores, sleep insights, a biological age estimate, and an AI coach that actually knows your body — all without a subscription, account, or ads.**
 
-Are you tired of health and fitness apps that lock your data behind $10–30/month paywalls, sell your information, or require yet another account? Myrri is the opposite. It is a free health tracker and personal coach that runs mostly on your phone, works with the wearable you already own, and keeps your data where it belongs — with you.
+Are you tired of health and fitness apps that lock your data behind $10–30/month paywalls, sell your information, or require yet another account? Akosian is the opposite. It is a free health tracker and personal coach that runs mostly on your phone, works with the wearable you already own, and keeps your data where it belongs — with you.
 
 ---
 
@@ -121,7 +121,7 @@ Syncs with Google Health Connect (steps, heart rate, HRV, sleep, calories, VO₂
 
 ---
 
-**Who is Myrri for?**
+**Who is Akosian for?**
 
 - People who want a WHOOP-style readiness and strain score without the WHOOP subscription.
 - Anyone who wants an AI health coach without paying monthly or selling their data.
@@ -130,11 +130,11 @@ Syncs with Google Health Connect (steps, heart rate, HRV, sleep, calories, VO₂
 
 ---
 
-**Myrri is not a medical device** — it is a wellness tracker and does not provide medical advice or diagnosis.
+**Akosian is not a medical device** — it is a wellness tracker and does not provide medical advice or diagnosis.
 
-**Download Myrri and get your private AI health coach today. Free, no subscription — your data stays on your phone.**
+**Download Akosian and get your private AI health coach today. Free, no subscription — your data stays on your phone.**
 
-*WHOOP is a trademark of Whoop, Inc.; Ōura is a trademark of Ōura Health Oy; MyFitnessPal is a trademark of MyFitnessPal, Inc.; Noom is a trademark of Noom, Inc. Myrri is an independent app and is not affiliated with, endorsed by, or sponsored by any of these companies. Feature and pricing comparisons reflect public information as of August 2026 and may change.*
+*WHOOP is a trademark of Whoop, Inc.; Ōura is a trademark of Ōura Health Oy; MyFitnessPal is a trademark of MyFitnessPal, Inc.; Noom is a trademark of Noom, Inc. Akosian is an independent app and is not affiliated with, endorsed by, or sponsored by any of these companies. Feature and pricing comparisons reflect public information as of August 2026 and may change.*
 
 ---
 
@@ -154,7 +154,7 @@ Syncs with Google Health Connect (steps, heart rate, HRV, sleep, calories, VO₂
 ### AEO checklist (why this structure)
 
 - ✅ Opening answers *"what is this app?"* and *"what problem does it solve?"*
-- ✅ "Who is Myrri for?" answers *"who is this for?"* — exactly what AI search parses for
+- ✅ "Who is Akosian for?" answers *"who is this for?"* — exactly what AI search parses for
 - ✅ Feature sections with clean subheads are scannable by both humans and LLM parsers
 - ✅ No unattributed testimonials or awards
 - ✅ No keyword stuffing — ~1 keyword per 250 chars, natural phrasing
