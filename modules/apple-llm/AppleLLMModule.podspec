@@ -9,7 +9,12 @@ Pod::Spec.new do |s|
   s.author         = 'Health App'
   s.source         = { git: '' }
   s.static_framework = true
-  s.platforms      = { ios: '26.0' }
+  # Must match the app's minimum deployment target (ios.deploymentTarget in
+  # app.json / expo-build-properties), not the FoundationModels availability.
+  # FoundationModels is only used behind `#available(iOS 26.0, *)` guards and
+  # weak-linked below, so older iOS versions just report isAvailable() == false.
+  s.platforms      = { ios: '15.1' }
+  s.weak_frameworks = 'FoundationModels'
   s.source_files   = 'src/**/*.swift'
   s.swift_version  = '5.9'
 
