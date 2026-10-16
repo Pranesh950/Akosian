@@ -24,6 +24,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { theme } from "../src/theme";
 import { useGoBack } from "../src/hooks/useGoBack";
 import {  getFoodByFdcId, searchFood, logMeal, deleteMeal, getServingUnits, estimateServing, getFoodDatabaseAttribution, FoodItem, MealEntry } from "../src/services/foodDatabase";
+import { formatDateKey } from "../src/services/journal";
 import type { ServingUnit } from "../src/services/foodDatabase";
 
 // Package-like units, most specific first. The catalog only carries per-100 g
@@ -144,7 +145,10 @@ export default function FoodDetailScreen() {
     if (!food || !macros || logging) return;
 
     setLogging(true);
-    const today = new Date().toISOString().split("T")[0];
+    // Local calendar date — every other write/read path keys meal logs by
+    // formatDateKey. toISOString() is UTC and stores the meal under the wrong
+    // day whenever UTC and local dates differ, so the entry "disappears".
+    const today = formatDateKey(new Date());
     const entry: MealEntry = {
       id: isEditing && mealId ? mealId : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       date: isEditing && mealDate ? mealDate : today,

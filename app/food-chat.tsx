@@ -65,6 +65,13 @@ import {
 } from "../src/services/foodDatabase";
 import { formatDateKey } from "../src/services/journal";
 import type { LlamaModel } from "../src/services/providers/llamaProvider";
+import {
+  FAST_ENOUGH_TPS,
+  getModelPickerRows,
+  markManualModelChoice,
+  measureModelSpeed,
+  type ModelPickerRow,
+} from "../src/services/localModel";
 
 const FOOD_SYSTEM_PROMPT = `You are a nutrition assistant for a mobile app. Help users log food they ate.
 
@@ -79,9 +86,9 @@ You have these tools, one action per response:
    - Instead of servingG you can use "calorieTarget": number to specify desired calories
    - Example: {"action": "log", "fdcId": "fd_example", "foodName": "Oatmeal, cooked", "calorieTarget": 180}
 
-3. get_meals: {"action": "get_meals"}
-   - Returns all meals logged today with their IDs, names, and nutrition
-   - Use this when the user asks what they ate or wants to review their log
+3. get_meals: {"action": "get_meals", "date": "today"|"yesterday"|"YYYY-MM-DD"}
+   - Returns meals logged on that date with their IDs, names, and nutrition plus day totals
+   - Use this when the user asks what they ate or wants to review their log (defaults to today)
 
 4. delete_meal: {"action": "delete_meal", "mealId": "xxx", "foodName": "Chicken breast"}
    - Proposes deleting a meal from today's log (requires user approval)
@@ -97,10 +104,14 @@ You have these tools, one action per response:
 
 RULES:
 - NEVER make up nutrition data. Only use data returned by search_food.
+- get_meals with count 0 means nothing is logged for that date — say so plainly. Never claim you can see food data when the log is empty.
 - For multi-food meals (e.g. "chicken burrito bowl with rice and guac"), search every ingredient, then log each one with its fdcId.
 - You may output MULTIPLE actions in one response — one complete JSON object per line. Use this to search or log several foods at once.
 - If a response contains multiple actions, do NOT add a reply action — after the tools run you will get a fresh turn to reply with a summary.
 - If search returns no matches or unclear matches, ask the user.
+- If the amount is vague ("some chicken", "a bowl of pasta", "a snack"), do NOT silently log an estimate. Ask one brief clarifying question with your best guess as options (e.g. "Was that closer to 100g or 200g of chicken?"). Log only once the amount is clear or the user confirms.
+- If search returns several plausible matches, ask which one (offer the top 2-3 by name) instead of picking silently.
+- When you log with an estimated serving, state the assumption in your reply ("Logged as ~150g — tell me if it was more or less").
 - Serving size estimates: 1 egg ≈ 50g, 1 banana ≈ 120g, 1 apple ≈ 180g, 1 slice bread ≈ 30g
 - For "X calories of Y": search Y, get calories per 100g, then servingG = (X / caloriesPer100g) × 100
 - When user asks to delete/edit, ALWAYS call get_meals first.
@@ -140,6 +151,10 @@ export default function FoodChatScreen() {
   const [availableModels, setAvailableModels] = useState<LlamaModel[]>([]);
   const [currentModelId, setCurrentModelId] = useState<string | null>(null);
   const [modelDownloadStates, setModelDownloadStates] = useState<Record<string, "not_downloaded" | "downloading" | "ready">>({});
+  // Device-fit + measured-speed annotations for the model picker.
+  const [pickerRows, setPickerRows] = useState<ModelPickerRow[]>([]);
+  const [recommendedModelId, setRecommendedModelId] = useState<string | null>(null);
+  const [speedTestId, setSpeedTestId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -177,6 +192,13 @@ export default function FoodChatScreen() {
             states[m.id] = (await checkModelDownloaded(m.id)) ? "ready" : "not_downloaded";
           }
           setModelDownloadStates(states);
+          // Fit + measured speed for the picker. Never blocks chat: any failure
+          // just leaves the rows unannotated.
+          try {
+            const picker = await getModelPickerRows();
+            setPickerRows(picker.rows);
+            setRecommendedModelId(picker.recommendation.modelId);
+          } catch {}
         }
       } catch (e) {
         console.warn("[FoodChat] Init failed:", e);
@@ -352,33 +374,6 @@ export default function FoodChatScreen() {
     });
   }
 
-  const logFood = useCallback(
-    async (food: FoodItem, servingGrams: number) => {
-      const multiplier = servingGrams / 100;
-      const now = new Date();
-      const entry: MealEntry = {
-        id: `${now.getTime()}_${Math.random().toString(36).slice(2, 8)}`,
-        date: formatDateKey(now),
-        timestamp: now.toISOString(),
-        fdcId: food.fdcId,
-        foodName: food.description,
-        servingGrams,
-        calories: Math.round(food.calories * multiplier),
-        protein: Math.round(food.protein * multiplier * 10) / 10,
-        carbs: Math.round(food.carbs * multiplier * 10) / 10,
-        fat: Math.round(food.fat * multiplier * 10) / 10,
-        fiber: Math.round(food.fiber * multiplier * 10) / 10,
-      };
-      try {
-        await logMeal(entry);
-        handleBack();
-      } catch (e) {
-        console.warn("[FoodChat] Log failed:", e);
-      }
-    },
-    [router]
-  );
-
   const handleApprove = useCallback(
     async (approval: { type: "delete" | "edit"; mealId: string; foodName: string; date: string; newServingG?: number }) => {
       try {
@@ -442,11 +437,6 @@ export default function FoodChatScreen() {
     []
   );
 
-  const handleQuickLog = useCallback(
-    (food: FoodItem) => logFood(food, estimateServing(food.description)),
-    [logFood]
-  );
-
   const handleSwitchModel = async (modelId: string) => {
     if (modelId === currentModelId) return;
     try {
@@ -454,9 +444,28 @@ export default function FoodChatScreen() {
       await switchLlamaModel(modelId);
       setCurrentModelId(modelId);
       setModelDownloadStates((prev) => ({ ...prev, [modelId]: "ready" }));
+      // A deliberate pick must survive the device recommender, otherwise the
+      // app would quietly move the user off the model they chose.
+      await markManualModelChoice();
     } catch (e) {
       console.warn("[FoodChat] Model switch failed:", e);
       setModelDownloadStates((prev) => ({ ...prev, [modelId]: "not_downloaded" }));
+    }
+  };
+
+  /** Runs a real generation to measure this model's speed on this device. */
+  const handleTestSpeed = async (modelId: string) => {
+    if (speedTestId) return;
+    setSpeedTestId(modelId);
+    try {
+      const speed = await measureModelSpeed(modelId);
+      if (speed) {
+        setPickerRows((prev) =>
+          prev.map((row) => (row.model.id === modelId ? { ...row, speed } : row))
+        );
+      }
+    } finally {
+      setSpeedTestId(null);
     }
   };
 
@@ -504,7 +513,7 @@ export default function FoodChatScreen() {
                 <Text style={styles.foodCategory}>{item.category}</Text>
                 <Text style={styles.foodMacros}>{item.calories} cal · {item.protein}g P · {item.carbs}g C · {item.fat}g F</Text>
               </View>
-              <TouchableOpacity style={styles.foodQuickAdd} onPress={() => handleQuickLog(item)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <TouchableOpacity style={styles.foodQuickAdd} onPress={() => router.push(`/food-detail?fdcId=${item.fdcId}`)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 <MaterialCommunityIcons name="plus" size={18} color={theme.colors.primary} />
               </TouchableOpacity>
             </TouchableOpacity>
@@ -579,14 +588,19 @@ export default function FoodChatScreen() {
   }
 
   // ── Main chat ────────────────────────────────────────────────
-  // Android needs "height": adjustResize no longer resizes the window once
-  // edge-to-edge is enforced (Android 15+, targetSdk 35+), which left the
-  // input bar behind the keyboard. RN's KAV pins its height to the initial
-  // frame, so this also stays correct on devices where adjustResize still
-  // works. No keyboardVerticalOffset: there is no native header to offset
-  // for (headerShown: false).
+  // Keyboard handling: iOS always needs KAV padding. On Android, API 35+
+  // ignores adjustResize under enforced edge-to-edge, so KAV padding does the
+  // lifting; below 35 the window still resizes itself and any KAV adjustment
+  // would double-lift the input bar, so KAV stays disabled there.
+  // (behavior="height" is avoided everywhere: its frame-relative math fights
+  // the window resize and leaves the bar behind the keyboard.)
+  const kavEnabled = Platform.OS === "ios" || Number(Platform.Version) >= 35;
   return (
-    <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top }]} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <KeyboardAvoidingView
+      style={[styles.container, { paddingTop: insets.top }]}
+      behavior="padding"
+      enabled={kavEnabled}
+    >
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={handleBack} style={styles.headerIconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -615,7 +629,7 @@ export default function FoodChatScreen() {
         </View>
       </View>
 
-      <FlatList ref={flatRef} data={messages} keyExtractor={(_, i) => String(i)} contentContainerStyle={[styles.messageList, messages.length === 0 && !streamingText && styles.messageListEmpty]} keyboardShouldPersistTaps="handled"
+      <FlatList ref={flatRef} data={messages} keyExtractor={(_, i) => String(i)} style={styles.list} contentContainerStyle={[styles.messageList, messages.length === 0 && !streamingText && styles.messageListEmpty]} keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           <View style={styles.welcomeWrap}><Text style={styles.welcomeEmoji}>🥗</Text><Text style={styles.welcomeTitle}>Nutrition Assistant</Text><Text style={styles.welcomeBody}>Tell me what you ate and I'll log it for you.{"\n"}Try "I had 2 eggs and a banana" or ask{"\n"}"what did I eat today?"</Text><BetaChip text="AI food logging is in beta — always double-check servings." /></View>
         }
@@ -663,13 +677,53 @@ export default function FoodChatScreen() {
                 <MaterialCommunityIcons name="close" size={22} color={theme.colors.ink} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.modelSheetSub}>Models run locally on your device. Larger models are smarter but slower.</Text>
+            <Text style={styles.modelSheetSub}>Models run locally on your device. Larger models are smarter but slower — speed is measured here, not estimated.</Text>
             {availableModels.map((m) => {
               const isCurrent = m.id === currentModelId;
               const dlState = modelDownloadStates[m.id] ?? "not_downloaded";
+              const row = pickerRows.find((r) => r.model.id === m.id);
+              const speed = row?.speed ?? null;
+              const isRecommended = m.id === recommendedModelId;
               return (
                 <TouchableOpacity key={m.id} style={[styles.modelRow, isCurrent && styles.modelRowActive]} onPress={() => handleSwitchModel(m.id)} disabled={dlState === "downloading"} activeOpacity={0.7}>
-                  <View style={styles.modelRowInfo}><Text style={styles.modelRowName}>{m.name}</Text><Text style={styles.modelRowSize}>{m.size}</Text></View>
+                  <View style={styles.modelRowInfo}>
+                    <View style={styles.modelRowTitleRow}>
+                      <Text style={styles.modelRowName}>{m.name}</Text>
+                      {isRecommended ? (
+                        <View style={styles.modelRecommendedBadge}>
+                          <Text style={styles.modelRecommendedText}>FOR THIS DEVICE</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Text style={styles.modelRowSize}>
+                      {m.size}
+                      {row && !row.fits ? " · may exceed this device's memory" : ""}
+                    </Text>
+                    {speed ? (
+                      <Text
+                        style={[
+                          styles.modelRowSize,
+                          speed.tokensPerSecond >= FAST_ENOUGH_TPS ? styles.modelRowSpeedGood : null,
+                        ]}
+                      >
+                        Measured on this device: {speed.tokensPerSecond} tok/s
+                      </Text>
+                    ) : null}
+                    {!speed && row?.fits && dlState === "ready" && !isCurrent ? (
+                      <TouchableOpacity
+                        onPress={() => handleTestSpeed(m.id)}
+                        disabled={!!speedTestId}
+                        activeOpacity={0.7}
+                        style={styles.modelTestBtn}
+                      >
+                        {speedTestId === m.id ? (
+                          <ActivityIndicator size="small" color={theme.colors.info} />
+                        ) : (
+                          <Text style={styles.modelTestText}>Test speed on this device</Text>
+                        )}
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
                   {dlState === "downloading" ? (
                     <ActivityIndicator size="small" color={theme.colors.primary} />
                   ) : isCurrent ? (
@@ -690,6 +744,17 @@ export default function FoodChatScreen() {
 }
 
 // ── Food tool handlers factory ─────────────────────────────────
+
+function resolveMealDate(raw?: unknown): string {
+  const p = String(raw ?? "today").toLowerCase();
+  if (p === "yesterday") {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return formatDateKey(d);
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(p)) return p;
+  return formatDateKey(new Date());
+}
 
 function buildFoodToolHandlers(): Record<string, ToolHandler> {
   return {
@@ -744,12 +809,16 @@ function buildFoodToolHandlers(): Record<string, ToolHandler> {
       return { toolResult: JSON.stringify({ tool: "log_meal", success: false, error: `Food not found: ${foodName || fdcId}` }) };
     },
 
-    get_meals: async () => {
-      const today = formatDateKey(new Date());
-      const meals = await getMeals(today);
+    get_meals: async (args) => {
+      const date = resolveMealDate(args.date);
+      const meals = await getMeals(date);
       return {
         toolResult: JSON.stringify({
-          tool: "get_meals", date: today, count: meals.length,
+          tool: "get_meals", date, count: meals.length,
+          totalCalories: meals.reduce((s, m) => s + m.calories, 0),
+          totalProtein: +meals.reduce((s, m) => s + m.protein, 0).toFixed(1),
+          totalCarbs: +meals.reduce((s, m) => s + m.carbs, 0).toFixed(1),
+          totalFat: +meals.reduce((s, m) => s + m.fat, 0).toFixed(1),
           meals: meals.map((m) => ({ mealId: m.id, foodName: m.foodName, servingGrams: m.servingGrams, calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat })),
         }),
       };
@@ -803,12 +872,13 @@ const styles = StyleSheet.create({
   headerRight: { flexDirection: "row", alignItems: "center", gap: 4 },
   headerIconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surfaceElevated },
   messageList: { padding: theme.spacing.lg, flexGrow: 1, justifyContent: "flex-end" },
+  list: { flex: 1 },
   messageListEmpty: { justifyContent: "center" },
   welcomeWrap: { alignItems: "center", paddingHorizontal: theme.spacing.xl },
   welcomeEmoji: { fontSize: 48, marginBottom: theme.spacing.lg },
   welcomeTitle: { ...theme.typography.titleLg, color: theme.colors.ink, marginBottom: theme.spacing.sm },
   welcomeBody: { ...theme.typography.bodyMd, color: theme.colors.muted, textAlign: "center", lineHeight: 22 },
-  inputBar: { paddingHorizontal: theme.spacing.md, paddingTop: theme.spacing.sm, backgroundColor: "transparent" },
+  inputBar: { paddingHorizontal: theme.spacing.md, paddingTop: theme.spacing.sm, backgroundColor: theme.colors.bg },
   inputRow: { flexDirection: "row", alignItems: "flex-end", gap: 10, backgroundColor: theme.colors.card, borderRadius: 28, borderWidth: 1, borderColor: theme.colors.border, padding: 6, ...theme.shadows.card },
   inputWrap: { flex: 1, paddingLeft: 12 },
   input: { fontSize: 15, lineHeight: 20, color: theme.colors.ink, maxHeight: 100, paddingVertical: 8, fontFamily: "Nunito_400Regular", fontWeight: "400" },
@@ -837,7 +907,13 @@ const styles = StyleSheet.create({
   modelRowActive: { borderWidth: 1.5, borderColor: theme.colors.primary, backgroundColor: `${theme.colors.primary}08` },
   modelRowInfo: { flex: 1 },
   modelRowName: { ...theme.typography.bodyMd, color: theme.colors.ink, fontFamily: "Nunito_600SemiBold", fontWeight: "600" },
+  modelRowTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  modelRecommendedBadge: { backgroundColor: `${theme.colors.success}18`, borderRadius: theme.radii.pill, paddingHorizontal: 6, paddingVertical: 2 },
+  modelRecommendedText: { ...theme.typography.legal, color: theme.colors.success, fontSize: 9, letterSpacing: 0.3 },
   modelRowSize: { ...theme.typography.legal, color: theme.colors.muted, marginTop: 2 },
+  modelRowSpeedGood: { color: theme.colors.success },
+  modelTestBtn: { marginTop: 6, alignSelf: "flex-start" },
+  modelTestText: { ...theme.typography.legal, color: theme.colors.info, fontFamily: "Nunito_600SemiBold", fontWeight: "600" },
   modelActiveBadge: { width: 32, height: 32, borderRadius: 16, backgroundColor: `${theme.colors.success}15`, alignItems: "center", justifyContent: "center" },
   modelDownloadBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: `${theme.colors.primary}10`, alignItems: "center", justifyContent: "center" },
   // ── Streaming bubble ─────────────────────────────────────────

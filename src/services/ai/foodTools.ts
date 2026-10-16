@@ -49,10 +49,15 @@ export const FOOD_AGENT_INSTRUCTIONS = `You are a nutrition assistant for a mobi
 
 RULES:
 - NEVER make up nutrition data. Only use data returned by search_food.
+- get_meals with count 0 means nothing is logged for that date — say so plainly. Never claim you can see food data when the log is empty.
 - For multi-food meals (e.g. "chicken burrito bowl with rice and guac"), search every ingredient, then log each one with its fdcId.
 - If search returns no matches or unclear matches, ask the user.
+- If the amount is vague ("some chicken", "a bowl of pasta", "a snack"), do NOT silently log an estimate. Ask one brief clarifying question with your best guess as options (e.g. "Was that closer to 100g or 200g of chicken?"). Log only once the amount is clear or the user confirms.
+- If search returns several plausible matches, ask which one (offer the top 2-3 by name) instead of picking silently.
+- When you log with an estimated serving, state the assumption in your reply ("Logged as ~150g — tell me if it was more or less").
 - Serving size estimates: 1 egg ≈ 50g, 1 banana ≈ 120g, 1 apple ≈ 180g, 1 slice bread ≈ 30g
 - For "X calories of Y": search Y, get calories per 100g, then servingG = (X / caloriesPer100g) × 100
+- get_meals accepts an optional date ('today', 'yesterday', or YYYY-MM-DD) — use it when the user asks about another day. Defaults to today.
 - When the user asks to delete/edit, ALWAYS call get_meals first.
 - When you are done and need no more tools, reply with a brief summary of what you logged.
 - Never reply with raw JSON or tool syntax — the user only ever sees your reply text.
@@ -60,6 +65,18 @@ RULES:
 
 /** Whole calories, one decimal for macros — matches the legacy handlers exactly. */
 const round1 = (value: number) => Math.round(value * 10) / 10;
+
+/** Resolve 'today' | 'yesterday' | YYYY-MM-DD to a meal-log date key. */
+function resolveMealDate(raw?: string): string {
+  const p = String(raw ?? "today").toLowerCase();
+  if (p === "yesterday") {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return formatDateKey(d);
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(p)) return p;
+  return formatDateKey(new Date());
+}
 
 const catalogRow = (food: FoodItem) => ({
   fdcId: food.fdcId,
@@ -209,12 +226,25 @@ export const foodTools = {
 
   get_meals: tool({
     description:
-      "List every meal logged today, with ids. Call this before editing or deleting anything so you have the correct mealId.",
-    inputSchema: z.object({}),
-    execute: async () => {
-      const date = formatDateKey(new Date());
-      const meals = await getMeals(date);
-      return { date, count: meals.length, meals: meals.map(mealRow) };
+      "List meals logged on a date, with ids and day totals. Call this before editing or deleting anything so you have the correct mealId.",
+    inputSchema: z.object({
+      date: z
+        .string()
+        .optional()
+        .describe("'today', 'yesterday', or a YYYY-MM-DD date. Defaults to today."),
+    }),
+    execute: async ({ date }) => {
+      const dateKey = resolveMealDate(date);
+      const meals = await getMeals(dateKey);
+      return {
+        date: dateKey,
+        count: meals.length,
+        totalCalories: meals.reduce((s, m) => s + m.calories, 0),
+        totalProtein: round1(meals.reduce((s, m) => s + m.protein, 0)),
+        totalCarbs: round1(meals.reduce((s, m) => s + m.carbs, 0)),
+        totalFat: round1(meals.reduce((s, m) => s + m.fat, 0)),
+        meals: meals.map(mealRow),
+      };
     },
   }),
 

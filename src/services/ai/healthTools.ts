@@ -19,11 +19,25 @@
 
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
-import { HealthService, computeStrainScore, computeSleepScore } from "../health";
+import {
+  HealthService,
+  computeStrainScore,
+  computeSleepScore,
+  type HealthConnectionStatus,
+} from "../health";
 import { formatSleepDuration } from "../../theme";
 import { getBodySummary } from "../bodySummary";
 import { getHabitLog, formatDateKey } from "../journal";
-import { getMeals, getFoodDatabaseAttribution } from "../foodDatabase";
+import {
+  estimateServing,
+  getFoodByFdcId,
+  getMeals,
+  logMeal,
+  searchFood,
+  getFoodDatabaseAttribution,
+  type FoodItem,
+  type MealEntry,
+} from "../foodDatabase";
 import { calculateReadiness } from "../readiness";
 import { getReadinessHistory } from "../insights";
 import { buildCoachChatToolHandlers } from "../coachPlan";
@@ -36,6 +50,10 @@ export const HEALTH_AGENT_INSTRUCTIONS = `You are a health coach AI. You have ac
 
 RULES:
 - NEVER guess data. If the user asks about sleep, call get_sleep first. Steps? get_steps. Recovery? get_recovery.
+- Every device-data tool result (steps, heart, workouts, trends, vitals, body, sleep, recovery) includes "healthStatus".
+  "connected" = the numbers are real. "connected_no_data" or "access_requested" = permission exists but nothing has synced — say the connection is on but empty, and suggest checking the wearable sync. Any other value (needs_permission, not_connected, unavailable, error) = you do NOT have the user's health data: say so plainly, NEVER quote the zero/empty values as real measurements, and NEVER claim access you don't have. Tell the user to connect from Overview → Connect.
+- get_journal "hasData": false means no entry that day. get_meals with count 0 means nothing logged — say so, don't claim otherwise.
+- For body metrics, weightSource/heightSource say where each value came from (wearable, manual log, or profile) — cite the source when it matters.
 - Pick the most specific tool. Don't call get_recovery if the user only asked about steps.
 - For questions about trends or history, use period "week" or "month".
 - For today's data use period "today" (or omit period).
@@ -43,13 +61,24 @@ RULES:
 - Connect dots between sleep, activity, nutrition, and vitals in your reply.
 - Be warm, encouraging, concise (2-4 sentences). Mention actual numbers.
 - Always state sleep durations in hours and minutes (e.g. 7h 24m, 8h) — never decimals like 7.4 hours. Quote the sleepDuration/duration fields verbatim.
-- If data is missing, acknowledge it and suggest how to get it.`;
+- If data is missing, acknowledge it and suggest how to get it.
+- FOOD LOGGING: you can log what the user ate. Search first (search_food), then log_meal
+  with the fdcId from the search results and the serving in grams (1 egg ≈ 50g,
+  1 banana ≈ 120g, 1 apple ≈ 180g, 1 slice bread ≈ 30g). For multi-food meals, search
+  and log every ingredient. If the amount is vague, do NOT silently log an estimate —
+  ask one brief clarifying question with your best guess as options, and log once
+  confirmed. If search returns several plausible matches, ask which one. When you log
+  with an estimated serving, state the assumption ("Logged as ~150g"). After logging,
+  confirm briefly what was added. Use get_meals
+  when the user asks what they ate. Never invent nutrition numbers — only log catalog rows
+  returned by search_food.`;
 
 let todaySnapshotCache: ReturnType<typeof HealthService.getTodayData> | null = null;
 
 /** Clear the per-turn health snapshot. Call once per user message. */
 export function resetHealthSnapshot(): void {
   todaySnapshotCache = null;
+  healthAccessCache = null;
 }
 
 function getTodaySnapshot(): ReturnType<typeof HealthService.getTodayData> {
@@ -64,6 +93,23 @@ function getTodaySnapshot(): ReturnType<typeof HealthService.getTodayData> {
     });
   }
   return todaySnapshotCache;
+}
+
+let healthAccessCache: Promise<HealthConnectionStatus> | null = null;
+
+/**
+ * Connection state for this turn, memoized like the snapshot. Without this the
+ * model cannot tell "0 steps measured" from "never granted access" — an
+ * unconnected device yields all-zero snapshots that read as real data.
+ */
+function getHealthAccess(): Promise<HealthConnectionStatus> {
+  if (!healthAccessCache) {
+    healthAccessCache = HealthService.getConnectionStatus().catch(() => {
+      healthAccessCache = null;
+      return "error" as HealthConnectionStatus;
+    });
+  }
+  return healthAccessCache;
 }
 
 function resolvePeriod(raw?: unknown): { days: number; label: string; dateOffset: number } {
@@ -98,6 +144,82 @@ const dateSchema = z
   .string()
   .optional()
   .describe("'today', 'yesterday', or a YYYY-MM-DD date.");
+
+/** Whole calories, one decimal for macros — matches the food agent exactly. */
+const round1 = (value: number) => Math.round(value * 10) / 10;
+
+/** Per-100g catalog values scaled to a serving. */
+function macrosFor(food: FoodItem, servingGrams: number) {
+  const multiplier = servingGrams / 100;
+  return {
+    calories: Math.round(food.calories * multiplier),
+    protein: round1(food.protein * multiplier),
+    carbs: round1(food.carbs * multiplier),
+    fat: round1(food.fat * multiplier),
+    fiber: round1(food.fiber * multiplier),
+  };
+}
+
+/**
+ * Resolve a model-supplied reference to a real catalog row (id → name →
+ * id-as-text). The caller sees which lookup matched, so a substitution is
+ * never silent.
+ */
+async function resolveFood(
+  fdcId: string,
+  foodName: string
+): Promise<{ food: FoodItem; matchedBy: "fdcId" | "foodName" | "fdcIdAsText" } | null> {
+  if (fdcId) {
+    const byId = await getFoodByFdcId(fdcId);
+    if (byId) return { food: byId, matchedBy: "fdcId" };
+  }
+  if (foodName) {
+    const results = await searchFood(foodName);
+    if (results.length > 0) return { food: results[0], matchedBy: "foodName" };
+  }
+  if (fdcId) {
+    const results = await searchFood(fdcId);
+    if (results.length > 0) return { food: results[0], matchedBy: "fdcIdAsText" };
+  }
+  return null;
+}
+
+async function logFoodEntry(input: {
+  fdcId?: string;
+  foodName?: string;
+  servingGrams?: number;
+  calorieTarget?: number;
+}) {
+  const fdcId = input.fdcId ?? "";
+  const foodName = input.foodName ?? "";
+  const resolved = await resolveFood(fdcId, foodName);
+  if (!resolved) {
+    return { ok: false as const, error: `Food not found: ${foodName || fdcId}` };
+  }
+
+  const { food, matchedBy } = resolved;
+  let servingGrams = input.servingGrams && input.servingGrams > 0 ? input.servingGrams : 0;
+  if (servingGrams <= 0) {
+    const target = input.calorieTarget ?? 0;
+    servingGrams = target > 0 && food.calories > 0
+      ? Math.round((target / food.calories) * 100)
+      : estimateServing(food.description);
+  }
+
+  const now = new Date();
+  const entry: MealEntry = {
+    id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    date: formatDateKey(now),
+    timestamp: now.toISOString(),
+    fdcId: food.fdcId,
+    foodName: food.description,
+    servingGrams,
+    ...macrosFor(food, servingGrams),
+  };
+
+  await logMeal(entry);
+  return { ok: true as const, entry, matchedBy };
+}
 
 // Coach tools stay defined in coachPlan.ts; wrap their JSON-string results.
 const coachHandlers = buildCoachChatToolHandlers();
@@ -150,13 +272,14 @@ export const healthTools = {
     execute: async ({ period }) => {
       const { days, label, dateOffset } = resolvePeriod(period);
       try {
+        const healthStatus = await getHealthAccess();
         await HealthService.initialize(false);
         if (days === 1 && dateOffset < 0) {
           const date = resolveDate("yesterday");
           const daily = await HealthService.getDailyActivity(2);
           const row = daily.find((d) => d.date === date);
           return {
-            tool: "get_steps", period: label, date,
+            tool: "get_steps", period: label, date, healthStatus,
             steps: row?.steps ?? 0,
             activeCalories: Math.round(row?.activeCalories ?? 0),
             hasData: row?.hasData ?? false,
@@ -165,7 +288,7 @@ export const healthTools = {
         if (days === 1) {
           const data = await getTodaySnapshot();
           return {
-            tool: "get_steps", period: label,
+            tool: "get_steps", period: label, healthStatus,
             steps: data.steps ?? 0,
             distanceMeters: Math.round(data.distance),
             activeCalories: Math.round(data.activeCalories),
@@ -174,7 +297,7 @@ export const healthTools = {
         const daily = await HealthService.getDailyActivity(days);
         const totalSteps = daily.reduce((s, d) => s + d.steps, 0);
         return {
-          tool: "get_steps", period: label, days: daily.length,
+          tool: "get_steps", period: label, days: daily.length, healthStatus,
           totalSteps, avgSteps: daily.length ? Math.round(totalSteps / daily.length) : 0,
           daily: daily.slice(-7).map((d) => ({ date: d.date, steps: d.steps })),
         };
@@ -190,6 +313,7 @@ export const healthTools = {
     execute: async ({ period }) => {
       const { days, label } = resolvePeriod(period);
       try {
+        const healthStatus = await getHealthAccess();
         const data = await getTodaySnapshot();
         const hr = data.heartRate?.length
           ? {
@@ -200,7 +324,7 @@ export const healthTools = {
             }
           : null;
         const result: Record<string, unknown> = {
-          tool: "get_heart", period: label,
+          tool: "get_heart", period: label, healthStatus,
           heartRate: hr,
           restingHeartRate: data.restingHeartRate,
           heartRateVariability: data.heartRateVariability,
@@ -226,11 +350,12 @@ export const healthTools = {
     execute: async ({ period }) => {
       const { days, label } = resolvePeriod(period ?? "week");
       try {
+        const healthStatus = await getHealthAccess();
         await HealthService.initialize(false);
         const workouts = await HealthService.getWorkouts(days);
         const totalMin = workouts.reduce((s, w) => s + w.durationMin, 0);
         return {
-          tool: "get_workouts", period: label, count: workouts.length,
+          tool: "get_workouts", period: label, count: workouts.length, healthStatus,
           totalMinutes: Math.round(totalMin),
           workouts: workouts.slice(0, 10).map((w) => ({
             name: w.name, type: w.type, durationMin: Math.round(w.durationMin),
@@ -250,12 +375,13 @@ export const healthTools = {
     execute: async ({ period }) => {
       const { days, label } = resolvePeriod(period ?? "week");
       try {
+        const healthStatus = await getHealthAccess();
         await HealthService.initialize(false);
         const daily = await HealthService.getDailyActivity(days);
         const totalSteps = daily.reduce((s, d) => s + d.steps, 0);
         const totalCals = daily.reduce((s, d) => s + d.activeCalories, 0);
         return {
-          tool: "get_activity_trends", period: label, days: daily.length,
+          tool: "get_activity_trends", period: label, days: daily.length, healthStatus,
           totalSteps, totalActiveCalories: Math.round(totalCals),
           avgSteps: daily.length ? Math.round(totalSteps / daily.length) : 0,
           daily: daily.map((d) => ({
@@ -275,9 +401,10 @@ export const healthTools = {
     inputSchema: z.object({}),
     execute: async () => {
       try {
+        const healthStatus = await getHealthAccess();
         const data = await getTodaySnapshot();
         return {
-          tool: "get_vitals",
+          tool: "get_vitals", healthStatus,
           bloodOxygen: data.bloodOxygen != null ? Math.round(data.bloodOxygen) : null,
           respiratoryRate: data.respiratoryRate,
           bodyTemperature: data.bodyTemperature,
@@ -295,9 +422,10 @@ export const healthTools = {
     inputSchema: z.object({}),
     execute: async () => {
       try {
+        const healthStatus = await getHealthAccess();
         const body = await getBodySummary();
         return {
-          tool: "get_body",
+          tool: "get_body", healthStatus,
           weightKg: body.weightKg,
           weightSource: body.weightSource,
           ...(body.weightDate ? { weightDate: body.weightDate } : {}),
@@ -321,10 +449,11 @@ export const healthTools = {
     inputSchema: z.object({ period: periodSchema }),
     execute: async ({ period }) => {
       try {
+        const healthStatus = await getHealthAccess();
         const data = await getTodaySnapshot();
         const sleepScore = computeSleepScore(data);
         const result: Record<string, unknown> = {
-          tool: "get_sleep", period: "today",
+          tool: "get_sleep", period: "today", healthStatus,
           sleepHours: data.sleepHours ? +data.sleepHours.toFixed(1) : 0,
           sleepDuration: formatSleepDuration(data.sleepHours),
           sleepScore,
@@ -379,6 +508,7 @@ export const healthTools = {
     inputSchema: z.object({}),
     execute: async () => {
       try {
+        const healthStatus = await getHealthAccess();
         const data = await getTodaySnapshot();
         const readiness = await calculateReadiness(
           data.heartRateVariability,
@@ -387,7 +517,7 @@ export const healthTools = {
         );
         const history = await getReadinessHistory(7);
         return {
-          tool: "get_recovery",
+          tool: "get_recovery", healthStatus,
           strainScore: computeStrainScore(data),
           sleepScore: computeSleepScore(data),
           readinessScore: readiness.score,
@@ -444,7 +574,7 @@ export const healthTools = {
           totalCarbs: +meals.reduce((s, m) => s + m.carbs, 0).toFixed(1),
           totalFat: +meals.reduce((s, m) => s + m.fat, 0).toFixed(1),
           meals: meals.map((m) => ({
-            foodName: m.foodName, servingGrams: m.servingGrams, calories: m.calories,
+            mealId: m.id, foodName: m.foodName, servingGrams: m.servingGrams, calories: m.calories,
             protein: m.protein, carbs: m.carbs, fat: m.fat,
           })),
           nutritionSource: getFoodDatabaseAttribution(),
@@ -452,6 +582,61 @@ export const healthTools = {
       } catch {
         return { tool: "get_meals", error: "Could not access meals" };
       }
+    },
+  }),
+
+  // ── Food logging (write path — same semantics as the food chat) ──
+  search_food: tool({
+    description:
+      "Search the nutrition database by text before logging. Returns up to 8 matches with per-100g values. Search one food at a time.",
+    inputSchema: z.object({
+      query: z.string().min(1).describe("Food name to look up, e.g. 'greek yogurt'."),
+    }),
+    execute: async ({ query }) => {
+      const results = await searchFood(query);
+      return {
+        tool: "search_food",
+        query,
+        found: results.length,
+        results: results.slice(0, 8).map((f) => ({
+          fdcId: f.fdcId, description: f.description, calories: f.calories,
+          protein: f.protein, carbs: f.carbs, fat: f.fat, fiber: f.fiber,
+        })),
+      };
+    },
+  }),
+
+  log_meal: tool({
+    description:
+      "Log one food to today's log. Call search_food first and pass its fdcId so the right catalog row is logged. Provide the serving in grams, or a calorieTarget to derive it.",
+    inputSchema: z.object({
+      fdcId: z.string().optional().describe("Catalog id from search_food."),
+      foodName: z.string().optional().describe("Name as returned by search_food."),
+      servingGrams: z.number().positive().optional().describe("Serving size in grams."),
+      calorieTarget: z
+        .number()
+        .positive()
+        .optional()
+        .describe("Desired calories; the serving is derived from the per-100g value."),
+    }),
+    execute: async (input) => {
+      const result = await logFoodEntry(input);
+      if (!result.ok) return { tool: "log_meal", logged: false, error: result.error };
+      const { entry, matchedBy } = result;
+      return {
+        tool: "log_meal",
+        logged: true,
+        matchedBy,
+        fdcId: entry.fdcId,
+        foodName: entry.foodName,
+        servingGrams: entry.servingGrams,
+        calories: entry.calories,
+        protein: entry.protein,
+        carbs: entry.carbs,
+        fat: entry.fat,
+        // Flagged so a name-based substitution is visible rather than silently accepted.
+        substituted: matchedBy !== "fdcId",
+      };
     },
   }),
 } satisfies ToolSet;

@@ -48,13 +48,29 @@ import {
 import { HEALTH_AGENT_ENABLED, HEALTH_AGENT_INSTRUCTIONS } from "../src/services/ai/healthTools";
 import { getBodySummary } from "../src/services/bodySummary";
 import { toolActivity, sourcesForTools } from "../src/services/ai/toolLabels";
-import { HealthService, computeStrainScore, computeSleepScore } from "../src/services/health";
+import { HealthService, computeStrainScore, computeSleepScore, type HealthConnectionStatus } from "../src/services/health";
 import { getHabitLog, formatDateKey } from "../src/services/journal";
-import { getMeals, getFoodDatabaseAttribution } from "../src/services/foodDatabase";
+import {
+  searchFood,
+  getFoodByFdcId,
+  logMeal,
+  estimateServing,
+  getMeals,
+  getFoodDatabaseAttribution,
+  type FoodItem,
+  type MealEntry,
+} from "../src/services/foodDatabase";
 import { calculateReadiness } from "../src/services/readiness";
 import { getReadinessHistory } from "../src/services/insights";
 import { buildCoachChatToolHandlers } from "../src/services/coachPlan";
 import type { LlamaModel } from "../src/services/providers/llamaProvider";
+import {
+  FAST_ENOUGH_TPS,
+  getModelPickerRows,
+  markManualModelChoice,
+  measureModelSpeed,
+  type ModelPickerRow,
+} from "../src/services/localModel";
 
 const HEALTH_SYSTEM_PROMPT = `You are a health coach AI. You have access to the user's health data through tools. ALWAYS call the right tool before answering — never make up numbers.
 
@@ -78,6 +94,15 @@ LIFESTYLE:
   get_journal   — {"action":"get_journal", "date":"today"|"yesterday"|"YYYY-MM-DD"}  → habits completed, caffeine, hydrationCups, alcohol, mood
   get_meals     — {"action":"get_meals", "date":"today"|"yesterday"|"YYYY-MM-DD"}     → meals with nutrition breakdown
 
+FOOD LOGGING:
+  search_food   — {"action":"search_food", "query":"food name"}  → up to 8 catalog matches with per-100g nutrition
+  log_meal      — {"action":"log", "fdcId": string, "foodName": string, "servingG": number}  → logs one food to today's log
+    - Instead of servingG you can use "calorieTarget": number to specify desired calories
+    - ALWAYS search first and pass the fdcId from the results. For multi-food meals, search and log every ingredient.
+    - If the amount is vague, do NOT silently log an estimate — ask one brief clarifying question with your best guess as options, and log once confirmed. If search returns several plausible matches, ask which one.
+    - When you log with an estimated serving, state the assumption ("Logged as ~150g — tell me if it was more or less").
+    - After logging, confirm briefly what was added. Never invent nutrition numbers.
+
 COACH PLANNING:
   get_goal_guidance — {"action":"get_goal_guidance", "goalId":"weight_loss"|"muscle_gain"|... , "topic":"targets"|"nutrition"|...} → knowledge chunk from the goal library
   get_plan          — {"action":"get_plan"}                                              → the user's current saved plan
@@ -89,6 +114,10 @@ reply — {"action":"reply", "message":"<your reply>"}
 
 RULES:
 - NEVER guess data. If the user asks about sleep, call get_sleep first. Steps? get_steps. Recovery? get_recovery.
+- Every device-data tool result (steps, heart, workouts, trends, vitals, body, sleep, recovery) includes "healthStatus".
+  "connected" = the numbers are real. "connected_no_data" or "access_requested" = permission exists but nothing has synced — say the connection is on but empty, and suggest checking the wearable sync. Any other value (needs_permission, not_connected, unavailable, error) = you do NOT have the user's health data: say so plainly, NEVER quote the zero/empty values as real measurements, and NEVER claim access you don't have. Tell the user to connect from Overview → Connect.
+- get_journal "hasData": false means no entry that day. get_meals with count 0 means nothing logged — say so, don't claim otherwise.
+- For body metrics, weightSource/heightSource say where each value came from (wearable, manual log, or profile) — cite the source when it matters.
 - Pick the most specific tool. Don't call get_recovery if the user only asked about steps.
 - Call ONE tool at a time. The result comes back, then you can call another or reply.
 - For questions about trends or history, use period "week" or "month".
@@ -119,6 +148,10 @@ export default function HealthChatScreen() {
   const [availableModels, setAvailableModels] = useState<LlamaModel[]>([]);
   const [currentModelId, setCurrentModelId] = useState<string | null>(null);
   const [modelDownloadStates, setModelDownloadStates] = useState<Record<string, "not_downloaded" | "downloading" | "ready">>({});
+  // Device-fit + measured-speed annotations for the model picker.
+  const [pickerRows, setPickerRows] = useState<ModelPickerRow[]>([]);
+  const [recommendedModelId, setRecommendedModelId] = useState<string | null>(null);
+  const [speedTestId, setSpeedTestId] = useState<string | null>(null);
   useEffect(() => {
     (async () => {
       try {
@@ -152,6 +185,13 @@ export default function HealthChatScreen() {
             states[m.id] = (await checkModelDownloaded(m.id)) ? "ready" : "not_downloaded";
           }
           setModelDownloadStates(states);
+          // Fit + measured speed for the picker. Never blocks chat: any failure
+          // just leaves the rows unannotated.
+          try {
+            const picker = await getModelPickerRows();
+            setPickerRows(picker.rows);
+            setRecommendedModelId(picker.recommendation.modelId);
+          } catch {}
         }
       } catch (e) {
         console.warn("[HealthChat] Init failed:", e);
@@ -210,6 +250,7 @@ export default function HealthChatScreen() {
     setLoading(true);
     setStreamingText("");
     resetTodaySnapshot();
+    resetHealthAccess();
     try {
       if (HEALTH_AGENT_ENABLED) {
         const turns = await (sessionRef.current as AgentChatSession).sendMessage(
@@ -284,9 +325,28 @@ export default function HealthChatScreen() {
       await switchLlamaModel(modelId);
       setCurrentModelId(modelId);
       setModelDownloadStates((prev) => ({ ...prev, [modelId]: "ready" }));
+      // A deliberate pick must survive the device recommender, otherwise the
+      // app would quietly move the user off the model they chose.
+      await markManualModelChoice();
     } catch (e) {
       console.warn("[HealthChat] Model switch failed:", e);
       setModelDownloadStates((prev) => ({ ...prev, [modelId]: "not_downloaded" }));
+    }
+  };
+
+  /** Runs a real generation to measure this model's speed on this device. */
+  const handleTestSpeed = async (modelId: string) => {
+    if (speedTestId) return;
+    setSpeedTestId(modelId);
+    try {
+      const speed = await measureModelSpeed(modelId);
+      if (speed) {
+        setPickerRows((prev) =>
+          prev.map((row) => (row.model.id === modelId ? { ...row, speed } : row))
+        );
+      }
+    } finally {
+      setSpeedTestId(null);
     }
   };
 
@@ -356,14 +416,19 @@ export default function HealthChatScreen() {
   }
 
   // ── Main chat ────────────────────────────────────────────────
-  // Android needs "height": adjustResize no longer resizes the window once
-  // edge-to-edge is enforced (Android 15+, targetSdk 35+), which left the
-  // input bar behind the keyboard. RN's KAV pins its height to the initial
-  // frame, so this also stays correct on devices where adjustResize still
-  // works. No keyboardVerticalOffset: the root Stack uses headerShown:false,
-  // so there is no native header to offset for.
+  // Keyboard handling: iOS always needs KAV padding. On Android, API 35+
+  // ignores adjustResize under enforced edge-to-edge, so KAV padding does the
+  // lifting; below 35 the window still resizes itself and any KAV adjustment
+  // would double-lift the input bar, so KAV stays disabled there.
+  // (behavior="height" is avoided everywhere: its frame-relative math fights
+  // the window resize and leaves the bar behind the keyboard.)
+  const kavEnabled = Platform.OS === "ios" || Number(Platform.Version) >= 35;
   return (
-    <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top }]} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <KeyboardAvoidingView
+      style={[styles.container, { paddingTop: insets.top }]}
+      behavior="padding"
+      enabled={kavEnabled}
+    >
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={handleBack} style={styles.headerIconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -389,7 +454,7 @@ export default function HealthChatScreen() {
         </View>
       </View>
 
-      <FlatList ref={flatRef} data={messages} keyExtractor={(_, i) => String(i)} contentContainerStyle={[styles.messageList, messages.length === 0 && !streamingText && styles.messageListEmpty]} keyboardShouldPersistTaps="handled"
+      <FlatList ref={flatRef} data={messages} keyExtractor={(_, i) => String(i)} style={styles.list} contentContainerStyle={[styles.messageList, messages.length === 0 && !streamingText && styles.messageListEmpty]} keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           <View style={styles.welcomeWrap}><Text style={styles.welcomeEmoji}>🧠</Text><Text style={styles.welcomeTitle}>Health AI</Text><Text style={styles.welcomeBody}>Ask me anything about your health.{"\n\n"}Try "How did I sleep last night?" or{"\n"}"Build me a plan" or{"\n"}"Analyze my recovery."</Text><BetaChip text="AI answers are in beta — not medical advice. Consult a clinician before making health decisions." /></View>
         }
@@ -437,13 +502,53 @@ export default function HealthChatScreen() {
                 <MaterialCommunityIcons name="close" size={22} color={theme.colors.ink} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.modelSheetSub}>Models run locally on your device.</Text>
+            <Text style={styles.modelSheetSub}>Models run locally on your device. Larger models are smarter but slower — speed is measured here, not estimated.</Text>
             {availableModels.map((m) => {
               const isCurrent = m.id === currentModelId;
               const dlState = modelDownloadStates[m.id] ?? "not_downloaded";
+              const row = pickerRows.find((r) => r.model.id === m.id);
+              const speed = row?.speed ?? null;
+              const isRecommended = m.id === recommendedModelId;
               return (
                 <TouchableOpacity key={m.id} style={[styles.modelRow, isCurrent && styles.modelRowActive]} onPress={() => handleSwitchModel(m.id)} disabled={dlState === "downloading"} activeOpacity={0.7}>
-                  <View style={styles.modelRowInfo}><Text style={styles.modelRowName}>{m.name}</Text><Text style={styles.modelRowSize}>{m.size}</Text></View>
+                  <View style={styles.modelRowInfo}>
+                    <View style={styles.modelRowTitleRow}>
+                      <Text style={styles.modelRowName}>{m.name}</Text>
+                      {isRecommended ? (
+                        <View style={styles.modelRecommendedBadge}>
+                          <Text style={styles.modelRecommendedText}>FOR THIS DEVICE</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Text style={styles.modelRowSize}>
+                      {m.size}
+                      {row && !row.fits ? " · may exceed this device's memory" : ""}
+                    </Text>
+                    {speed ? (
+                      <Text
+                        style={[
+                          styles.modelRowSize,
+                          speed.tokensPerSecond >= FAST_ENOUGH_TPS ? styles.modelRowSpeedGood : null,
+                        ]}
+                      >
+                        Measured on this device: {speed.tokensPerSecond} tok/s
+                      </Text>
+                    ) : null}
+                    {!speed && row?.fits && dlState === "ready" && !isCurrent ? (
+                      <TouchableOpacity
+                        onPress={() => handleTestSpeed(m.id)}
+                        disabled={!!speedTestId}
+                        activeOpacity={0.7}
+                        style={styles.modelTestBtn}
+                      >
+                        {speedTestId === m.id ? (
+                          <ActivityIndicator size="small" color={theme.colors.info} />
+                        ) : (
+                          <Text style={styles.modelTestText}>Test speed on this device</Text>
+                        )}
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
                   {isCurrent ? (
                     <View style={styles.modelActiveBadge}><MaterialCommunityIcons name="check-circle" size={16} color={theme.colors.success} /></View>
                   ) : dlState === "ready" ? (
@@ -512,6 +617,27 @@ function getTodaySnapshot(): ReturnType<typeof HealthService.getTodayData> {
   return todaySnapshotCache;
 }
 
+let healthAccessCache: Promise<HealthConnectionStatus> | null = null;
+
+/**
+ * Connection state for this turn, memoized like the snapshot. Without this the
+ * model cannot tell "0 steps measured" from "never granted access" — an
+ * unconnected device yields all-zero snapshots that read as real data.
+ */
+function getHealthAccess(): Promise<HealthConnectionStatus> {
+  if (!healthAccessCache) {
+    healthAccessCache = HealthService.getConnectionStatus().catch(() => {
+      healthAccessCache = null;
+      return "error" as HealthConnectionStatus;
+    });
+  }
+  return healthAccessCache;
+}
+
+function resetHealthAccess(): void {
+  healthAccessCache = null;
+}
+
 function buildHealthToolHandlers(): Record<string, ToolHandler> {
   return {
     // ── Coach planning ────────────────────────────────────
@@ -521,6 +647,7 @@ function buildHealthToolHandlers(): Record<string, ToolHandler> {
     get_steps: async (args) => {
       const { days, label, dateOffset } = resolvePeriod(args.period as string);
       try {
+        const healthStatus = await getHealthAccess();
         await HealthService.initialize(false);
 
         if (days === 1 && dateOffset < 0) {
@@ -532,7 +659,7 @@ function buildHealthToolHandlers(): Record<string, ToolHandler> {
           const row = daily.find((d) => d.date === date);
           return {
             toolResult: JSON.stringify({
-              tool: "get_steps", period: label, date,
+              tool: "get_steps", period: label, date, healthStatus,
               steps: row?.steps ?? 0,
               activeCalories: Math.round(row?.activeCalories ?? 0),
               hasData: row?.hasData ?? false,
@@ -545,7 +672,7 @@ function buildHealthToolHandlers(): Record<string, ToolHandler> {
           const steps = data.steps ?? 0;
           return {
             toolResult: JSON.stringify({
-              tool: "get_steps", period: label,
+              tool: "get_steps", period: label, healthStatus,
               steps,
               distanceMeters: Math.round(data.distance),
               activeCalories: Math.round(data.activeCalories),
@@ -558,7 +685,7 @@ function buildHealthToolHandlers(): Record<string, ToolHandler> {
         const avgSteps = daily.length ? Math.round(totalSteps / daily.length) : 0;
         return {
           toolResult: JSON.stringify({
-            tool: "get_steps", period: label, days: daily.length,
+            tool: "get_steps", period: label, days: daily.length, healthStatus,
             totalSteps, avgSteps,
             daily: daily.slice(-7).map((d) => ({ date: d.date, steps: d.steps })),
           }),
@@ -571,13 +698,14 @@ function buildHealthToolHandlers(): Record<string, ToolHandler> {
     get_heart: async (args) => {
       const { days, label } = resolvePeriod(args.period as string);
       try {
+        const healthStatus = await getHealthAccess();
         const data = await getTodaySnapshot();
         const hr = data.heartRate?.length
           ? { avg: Math.round(data.heartRate.reduce((a, b) => a + b, 0) / data.heartRate.length), max: Math.max(...data.heartRate), min: Math.min(...data.heartRate), readings: data.heartRate.length }
           : null;
 
         const result: any = {
-          tool: "get_heart", period: label,
+          tool: "get_heart", period: label, healthStatus,
           heartRate: hr,
           restingHeartRate: data.restingHeartRate,
           heartRateVariability: data.heartRateVariability,
@@ -601,12 +729,13 @@ function buildHealthToolHandlers(): Record<string, ToolHandler> {
     get_workouts: async (args) => {
       const { days, label } = resolvePeriod(args.period || "week");
       try {
+        const healthStatus = await getHealthAccess();
         await HealthService.initialize(false);
         const workouts = await HealthService.getWorkouts(days);
         const totalMin = workouts.reduce((s, w) => s + w.durationMin, 0);
         return {
           toolResult: JSON.stringify({
-            tool: "get_workouts", period: label, count: workouts.length, totalMinutes: Math.round(totalMin),
+            tool: "get_workouts", period: label, count: workouts.length, totalMinutes: Math.round(totalMin), healthStatus,
             workouts: workouts.slice(0, 10).map((w) => ({
               name: w.name, type: w.type, durationMin: Math.round(w.durationMin),
               calories: w.calories ? Math.round(w.calories) : null,
@@ -622,13 +751,14 @@ function buildHealthToolHandlers(): Record<string, ToolHandler> {
     get_activity_trends: async (args) => {
       const { days, label } = resolvePeriod(args.period || "week");
       try {
+        const healthStatus = await getHealthAccess();
         await HealthService.initialize(false);
         const daily = await HealthService.getDailyActivity(days);
         const totalSteps = daily.reduce((s, d) => s + d.steps, 0);
         const totalCals = daily.reduce((s, d) => s + d.activeCalories, 0);
         return {
           toolResult: JSON.stringify({
-            tool: "get_activity_trends", period: label, days: daily.length,
+            tool: "get_activity_trends", period: label, days: daily.length, healthStatus,
             totalSteps, totalActiveCalories: Math.round(totalCals),
             avgSteps: daily.length ? Math.round(totalSteps / daily.length) : 0,
             daily: daily.map((d) => ({ date: d.date, steps: d.steps, activeCalories: Math.round(d.activeCalories), workouts: d.workoutCount })),
@@ -642,10 +772,11 @@ function buildHealthToolHandlers(): Record<string, ToolHandler> {
     // ── Body & Vitals ─────────────────────────────────────
     get_vitals: async () => {
       try {
+        const healthStatus = await getHealthAccess();
         const data = await getTodaySnapshot();
         return {
           toolResult: JSON.stringify({
-            tool: "get_vitals",
+            tool: "get_vitals", healthStatus,
             bloodOxygen: data.bloodOxygen != null ? Math.round(data.bloodOxygen) : null,
             respiratoryRate: data.respiratoryRate,
             bodyTemperature: data.bodyTemperature,
@@ -659,10 +790,11 @@ function buildHealthToolHandlers(): Record<string, ToolHandler> {
 
     get_body: async () => {
       try {
+        const healthStatus = await getHealthAccess();
         const body = await getBodySummary();
         return {
           toolResult: JSON.stringify({
-            tool: "get_body",
+            tool: "get_body", healthStatus,
             weightKg: body.weightKg,
             weightSource: body.weightSource,
             ...(body.weightDate ? { weightDate: body.weightDate } : {}),
@@ -682,12 +814,13 @@ function buildHealthToolHandlers(): Record<string, ToolHandler> {
     // ── Recovery ──────────────────────────────────────────
     get_sleep: async (args) => {
       try {
+        const healthStatus = await getHealthAccess();
         const data = await getTodaySnapshot();
         const sleepHours = data.sleepHours ?? 0;
         const sleepScore = computeSleepScore(data);
 
         const result: any = {
-          tool: "get_sleep", period: "today",
+          tool: "get_sleep", period: "today", healthStatus,
           sleepHours: sleepHours ? +sleepHours.toFixed(1) : 0,
           sleepDuration: formatSleepDuration(sleepHours),
           sleepScore,
@@ -746,6 +879,7 @@ function buildHealthToolHandlers(): Record<string, ToolHandler> {
 
     get_recovery: async () => {
       try {
+        const healthStatus = await getHealthAccess();
         const data = await getTodaySnapshot();
         const strainScore = computeStrainScore(data);
         const sleepScore = computeSleepScore(data);
@@ -754,7 +888,7 @@ function buildHealthToolHandlers(): Record<string, ToolHandler> {
 
         return {
           toolResult: JSON.stringify({
-            tool: "get_recovery",
+            tool: "get_recovery", healthStatus,
             strainScore,
             sleepScore,
             readinessScore: readiness.score,
@@ -805,13 +939,75 @@ function buildHealthToolHandlers(): Record<string, ToolHandler> {
             totalProtein: +meals.reduce((s, m) => s + m.protein, 0).toFixed(1),
             totalCarbs: +meals.reduce((s, m) => s + m.carbs, 0).toFixed(1),
             totalFat: +meals.reduce((s, m) => s + m.fat, 0).toFixed(1),
-            meals: meals.map((m) => ({ foodName: m.foodName, servingGrams: m.servingGrams, calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat })),
+            meals: meals.map((m) => ({ mealId: m.id, foodName: m.foodName, servingGrams: m.servingGrams, calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat })),
             nutritionSource: getFoodDatabaseAttribution(),
           }),
         };
       } catch {
         return { toolResult: JSON.stringify({ tool: "get_meals", error: "Could not access meals" }) };
       }
+    },
+
+    // ── Food logging (write path — same semantics as the food chat) ──
+    search_food: async (args) => {
+      const query = String((args.query as string) || "");
+      const results = await searchFood(query);
+      return {
+        toolResult: JSON.stringify({
+          tool: "search_food", query, found: results.length,
+          results: results.map((f) => ({ fdcId: f.fdcId, description: f.description, calories: f.calories, protein: f.protein, carbs: f.carbs, fat: f.fat, fiber: f.fiber })),
+        }),
+      };
+    },
+
+    log_meal: async (args) => {
+      const fdcId = String((args.fdcId as string) || "");
+      const foodName = String((args.foodName as string) || "");
+      let servingG = Number(args.servingG || args.serving_grams || 0);
+
+      let food: FoodItem | null = null;
+      let matchedBy = "none";
+      if (fdcId) {
+        food = await getFoodByFdcId(fdcId);
+        if (food) matchedBy = "fdcId";
+      }
+      if (!food && foodName) {
+        const results = await searchFood(foodName);
+        if (results.length > 0) {
+          food = results[0];
+          matchedBy = "foodName";
+        }
+      }
+      if (!food && fdcId) {
+        const results = await searchFood(fdcId);
+        if (results.length > 0) {
+          food = results[0];
+          matchedBy = "fdcIdAsText";
+        }
+      }
+
+      if (food) {
+        if (servingG <= 0) {
+          const calorieTarget = Number(args.calorieTarget || args.calories_target || 0);
+          if (calorieTarget > 0 && food.calories > 0) servingG = Math.round((calorieTarget / food.calories) * 100);
+          else servingG = estimateServing(food.description);
+        }
+        const multiplier = servingG / 100;
+        const now = new Date();
+        const entry: MealEntry = {
+          id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          date: formatDateKey(now), timestamp: now.toISOString(),
+          fdcId: food.fdcId, foodName: food.description, servingGrams: servingG,
+          calories: Math.round(food.calories * multiplier),
+          protein: Math.round(food.protein * multiplier * 10) / 10,
+          carbs: Math.round(food.carbs * multiplier * 10) / 10,
+          fat: Math.round(food.fat * multiplier * 10) / 10,
+          fiber: Math.round(food.fiber * multiplier * 10) / 10,
+        };
+        await logMeal(entry);
+        return { toolResult: JSON.stringify({ tool: "log_meal", success: true, matchedBy, substituted: matchedBy !== "fdcId", fdcId: food.fdcId, foodName: food.description, servingGrams: servingG, calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat }) };
+      }
+      return { toolResult: JSON.stringify({ tool: "log_meal", success: false, error: `Food not found: ${foodName || fdcId}` }) };
     },
   };
 }
@@ -839,12 +1035,13 @@ const styles = StyleSheet.create({
   headerRight: { flexDirection: "row", alignItems: "center", gap: 4 },
   headerIconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surfaceElevated },
   messageList: { padding: theme.spacing.lg, flexGrow: 1, justifyContent: "flex-end" },
+  list: { flex: 1 },
   messageListEmpty: { justifyContent: "center" },
   welcomeWrap: { alignItems: "center", paddingHorizontal: theme.spacing.xl },
   welcomeEmoji: { fontSize: 48, marginBottom: theme.spacing.lg },
   welcomeTitle: { ...theme.typography.titleLg, color: theme.colors.ink, marginBottom: theme.spacing.sm },
   welcomeBody: { ...theme.typography.bodyMd, color: theme.colors.muted, textAlign: "center", lineHeight: 22 },
-  inputBar: { paddingHorizontal: theme.spacing.md, paddingTop: theme.spacing.sm, backgroundColor: "transparent" },
+  inputBar: { paddingHorizontal: theme.spacing.md, paddingTop: theme.spacing.sm, backgroundColor: theme.colors.bg },
   inputRow: { flexDirection: "row", alignItems: "flex-end", gap: 10, backgroundColor: theme.colors.card, borderRadius: 28, borderWidth: 1, borderColor: theme.colors.border, padding: 6, ...theme.shadows.card },
   inputWrap: { flex: 1, paddingLeft: 12 },
   input: { fontSize: 15, lineHeight: 20, color: theme.colors.ink, maxHeight: 100, paddingVertical: 8, fontFamily: "Nunito_400Regular", fontWeight: "400" },
@@ -861,7 +1058,13 @@ const styles = StyleSheet.create({
   modelRowActive: { borderWidth: 1.5, borderColor: theme.colors.primary, backgroundColor: `${theme.colors.primary}08` },
   modelRowInfo: { flex: 1 },
   modelRowName: { ...theme.typography.bodyMd, color: theme.colors.ink, fontFamily: "Nunito_600SemiBold", fontWeight: "600" },
+  modelRowTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  modelRecommendedBadge: { backgroundColor: `${theme.colors.success}18`, borderRadius: theme.radii.pill, paddingHorizontal: 6, paddingVertical: 2 },
+  modelRecommendedText: { ...theme.typography.legal, color: theme.colors.success, fontSize: 9, letterSpacing: 0.3 },
   modelRowSize: { ...theme.typography.legal, color: theme.colors.muted, marginTop: 2 },
+  modelRowSpeedGood: { color: theme.colors.success },
+  modelTestBtn: { marginTop: 6, alignSelf: "flex-start" },
+  modelTestText: { ...theme.typography.legal, color: theme.colors.info, fontFamily: "Nunito_600SemiBold", fontWeight: "600" },
   modelActiveBadge: { width: 32, height: 32, borderRadius: 16, backgroundColor: `${theme.colors.success}15`, alignItems: "center", justifyContent: "center" },
   modelDownloadBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: `${theme.colors.primary}10`, alignItems: "center", justifyContent: "center" },
   // ── Streaming bubble ─────────────────────────────────────────

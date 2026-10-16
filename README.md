@@ -12,7 +12,7 @@ Sleep, recovery, food, habits, and an optional AI coach.<br />
 No Akosian account. No subscription. No ads. Open source.
 
 [![Join the Android beta](https://img.shields.io/badge/Join_the_Android_beta-3DDC84?style=for-the-badge&logo=android&logoColor=202126)](#get-akosian-on-android)
-[![Star Akosian](https://img.shields.io/github/stars/Pranesh950/Akosian-Health?style=for-the-badge&logo=github&label=Star%20Akosian&color=E56F63)](https://github.com/Pranesh950/Akosian-Health)
+[![Star Akosian](https://img.shields.io/github/stars/Pranesh950/Akosian?style=for-the-badge&logo=github&label=Star%20Akosian&color=E56F63)](https://github.com/Pranesh950/Akosian)
 [![License: GPL v3](https://img.shields.io/badge/Open_source-GPLv3-202126?style=for-the-badge)](LICENSE)
 
 **Android closed beta · iOS public testing link not available yet**
@@ -21,7 +21,7 @@ No Akosian account. No subscription. No ads. Open source.
 
 **Your health data belongs with you. Not behind a monthly paywall.**
 
-[Get the Android beta](#get-akosian-on-android) · [What it does](#what-you-can-do) · [Privacy, plainly](#privacy-plainly) · [Build it yourself](#build-it-yourself)
+[Get the Android beta](#get-akosian-on-android) · [What you can do](#what-you-can-do) · [Privacy, plainly](#privacy-plainly) · [Build it yourself](#build-it-yourself)
 
 </div>
 
@@ -49,7 +49,7 @@ No Akosian account. No subscription. No ads. Open source.
 
 **Want to help get Akosian out of closed testing?** Join, opt in, and try it in your normal routine. Google Play's production-access process can require at least **12 testers opted in continuously for 14 days**; eligibility and approval are determined by Google. Honest bug reports and real-world feedback matter more than perfect reviews.
 
-**On iPhone?** There is no public TestFlight link listed yet. Watch this repository's [releases](https://github.com/Pranesh950/Akosian-Health/releases) for availability. A GitHub star is appreciated, but it doesn't subscribe you to release notifications.
+**On iPhone?** There is no public TestFlight link listed yet. Watch this repository's [releases](https://github.com/Pranesh950/Akosian/releases) for availability. A GitHub star is appreciated, but it doesn't subscribe you to release notifications.
 
 ## Your health. Your phone. Your rules.
 
@@ -102,7 +102,7 @@ No wearable? Start with manual meals, habits, and supported manual metrics. Read
 - Health permissions are your choice. Revoke them in Apple Health or Health Connect.
 - **On-device AI inference stays on-device.** Model downloads and app-store services still need network access.
 - **Cloud AI is optional.** When enabled, your chat and relevant context go directly to your selected provider. Identifier scrubbing is best-effort—not a guarantee of anonymity, and not removal of all sensitive health information.
-- API keys are kept in **OS secure storage**, not a Akosian server. Your provider's billing and retention policies still apply.
+- API keys are kept in **OS secure storage**, not an Akosian server. Your provider's billing and retention policies still apply.
 
 Read the [full privacy policy](PRIVACY_POLICY.md) and inspect the [source](src/services). Keep private health information out of public bug reports and the tester group.
 
@@ -111,15 +111,15 @@ Read the [full privacy policy](PRIVACY_POLICY.md) and inspect the [source](src/s
 You don't need to code to help.
 
 1. **Try the [Android beta](#get-akosian-on-android).** Tell us what broke, what confused you, and what actually helped.
-2. **[Star the repository](https://github.com/Pranesh950/Akosian-Health).** Help other people discover an open-source alternative.
+2. **[Star the repository](https://github.com/Pranesh950/Akosian).** Help other people discover an open-source alternative.
 3. **Send it to one friend** who cares about privacy, tracks their sleep, or is tired of subscription-only health tools.
 
 **A message you can copy:**
 
-> Health should be private and free. Akosian is an open-source health app for sleep, recovery, food, and habits—with optional on-device AI, no Akosian account, and no subscription. Android beta signup: https://github.com/Pranesh950/Akosian-Health#get-akosian-on-android
+> Health should be private and free. Akosian is an open-source health app for sleep, recovery, food, and habits—with optional on-device AI, no Akosian account, and no subscription. Android beta signup: https://github.com/Pranesh950/Akosian#get-akosian-on-android
 
-[![Share on X](https://img.shields.io/badge/Share_on_X-202126?style=for-the-badge&logo=x&logoColor=white)](https://twitter.com/intent/tweet?text=Health%20should%20be%20private%20and%20free.%20Akosian%20is%20an%20open-source%20health%20app%20with%20no%20subscription%20and%20optional%20on-device%20AI.%20Try%20the%20Android%20beta%3A&url=https%3A%2F%2Fgithub.com%2FPranesh950%2FAkosian-Health%23get-akosian-on-android)
-[![Share on WhatsApp](https://img.shields.io/badge/Send_to_a_friend-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://wa.me/?text=Health%20should%20be%20private%20and%20free.%20Try%20Akosian%2C%20an%20open-source%20health%20app%20with%20no%20subscription%20and%20optional%20on-device%20AI%3A%20https%3A%2F%2Fgithub.com%2FPranesh950%2FAkosian-Health%23get-akosian-on-android)
+[![Share on X](https://img.shields.io/badge/Share_on_X-202126?style=for-the-badge&logo=x&logoColor=white)](https://twitter.com/intent/tweet?text=Health%20should%20be%20private%20and%20free.%20Akosian%20is%20an%20open-source%20health%20app%20with%20no%20subscription%20and%20optional%20on-device%20AI.%20Try%20the%20Android%20beta%3A&url=https%3A%2F%2Fgithub.com%2FPranesh950%2FAkosian%23get-akosian-on-android)
+[![Share on WhatsApp](https://img.shields.io/badge/Send_to_a_friend-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://wa.me/?text=Health%20should%20be%20private%20and%20free.%20Try%20Akosian%2C%20an%20open-source%20health%20app%20with%20no%20subscription%20and%20optional%20on-device%20AI%3A%20https%3A%2F%2Fgithub.com%2FPranesh950%2FAkosian%23get-akosian-on-android)
 
 **Please share the signup section, not just the Play Store listing.** Closed-beta users need group membership and the tester opt-in before they can install.
 
@@ -130,8 +130,8 @@ You don't need to code to help.
 Prerequisites: Node **20.19+**, npm, and Android Studio or Xcode for local native builds. EAS builds require your own Expo project and signing credentials. This is a **native app**; Expo Go cannot load its health and AI native modules.
 
 ```bash
-git clone https://github.com/Pranesh950/Akosian-Health.git
-cd Akosian-Health
+git clone https://github.com/Pranesh950/Akosian.git
+cd Akosian
 npm install
 
 # Typecheck
@@ -160,7 +160,7 @@ Nutrition data attribution: [OpenNutrition](src/data/OPENNUTRITION_ATTRIBUTION.m
 
 ## Contribute
 
-[Report a bug or suggest a feature](https://github.com/Pranesh950/Akosian-Health/issues) · [Browse the source](https://github.com/Pranesh950/Akosian-Health) · [Read the license](LICENSE)
+[Report a bug or suggest a feature](https://github.com/Pranesh950/Akosian/issues) · [Browse the source](https://github.com/Pranesh950/Akosian) · [Read the license](LICENSE)
 
 Code, design, documentation, translations, accessibility improvements, and nutrition-data fixes are welcome. For a bug report, include your phone model, OS version, app version, and steps to reproduce. **Remove health data, API keys, and personal details from screenshots and logs.**
 
@@ -170,7 +170,7 @@ Code, design, documentation, translations, accessibility improvements, and nutri
 - More device testing and on-device AI improvements.
 - More languages and accessibility polish.
 
-Have a different priority? [Open an issue](https://github.com/Pranesh950/Akosian-Health/issues).
+Have a different priority? [Open an issue](https://github.com/Pranesh950/Akosian/issues).
 
 ## A few honest limits
 
@@ -192,7 +192,7 @@ Have a different priority? [Open an issue](https://github.com/Pranesh950/Akosian
 
 **If that sounds like the future you want, help build it.**
 
-[Join the Android beta](#get-akosian-on-android) · [Star Akosian](https://github.com/Pranesh950/Akosian-Health) · [Share with a friend](#help-make-private-health-the-default)
+[Join the Android beta](#get-akosian-on-android) · [Star Akosian](https://github.com/Pranesh950/Akosian) · [Share with a friend](#help-make-private-health-the-default)
 
 <sub>Built by Pranesh Shivaraj. For people, not data brokers.</sub>
 

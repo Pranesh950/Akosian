@@ -25,6 +25,7 @@ import {
   checkLocalAIReadiness,
   type LocalAIReadiness,
 } from "../../src/services/deviceCheck";
+import { setSelectedModelId } from "../../src/services/providers/llamaProvider";
 
 const choices: {
   id: LLMChoice;
@@ -83,6 +84,11 @@ export default function AIChoiceScreen() {
 
   const finishLocal = async () => {
     await setLLMChoice("local");
+    // Adopt the model this device was recommended now that the user has seen the
+    // name and download size on the verdict card. Without this the app would
+    // keep whatever the default rung is and ignore the device check entirely.
+    const pick = readiness?.recommended.modelId;
+    if (pick) await setSelectedModelId(pick);
     if (fromOnboarding) {
       router.push("/onboarding/goals");
     } else {
@@ -253,8 +259,10 @@ export default function AIChoiceScreen() {
               <Text style={styles.infoTitle}>Before choosing local</Text>
               <Text style={styles.infoText}>
                 Prompts never reach a cloud service, but expect fewer features,
-                slower replies, and a large download. “Check my device”
-                tests this phone's chip, memory, and storage first.
+                slower replies, and a large download. “Check my device” reads
+                this phone's memory and free storage to pick the largest model
+                that fits — then measures real speed on the device once that
+                model has downloaded.
               </Text>
             </View>
           </View>
@@ -341,6 +349,7 @@ function DeviceVerdictCard({
         : readiness.verdict === "poor"
           ? "close-circle-outline"
           : "help-circle-outline";
+  const rec = readiness.recommended;
   return (
     <View style={styles.verdictCard}>
       <View style={styles.verdictHeader}>
@@ -353,6 +362,38 @@ function DeviceVerdictCard({
         </View>
       </View>
       <Text style={styles.infoText}>{readiness.detail}</Text>
+
+      {rec.modelName ? (
+        <View style={styles.pickBlock}>
+          <View style={styles.pickRow}>
+            <MaterialCommunityIcons
+              name="download-outline"
+              size={15}
+              color={theme.colors.primary}
+            />
+            <Text style={styles.pickText}>
+              Best for this phone: <Text style={styles.pickStrong}>{rec.modelName}</Text>
+              {rec.downloadBytes
+                ? ` · ${(rec.downloadBytes / (1024 * 1024 * 1024)).toFixed(2)} GB download`
+                : " · already built in"}
+            </Text>
+          </View>
+          <View style={styles.pickRow}>
+            <MaterialCommunityIcons
+              name={rec.basis === "measured" ? "speedometer" : "calculator-variant-outline"}
+              size={15}
+              color={theme.colors.muted}
+            />
+            <Text style={styles.pickMeta}>
+              {rec.basis === "measured"
+                ? rec.tokensPerSecond != null
+                  ? `Measured on this device: ${rec.tokensPerSecond} tok/s`
+                  : "Based on a measured result from this device"
+                : "Based on your device's specs — not yet measured here"}
+            </Text>
+          </View>
+        </View>
+      ) : null}
       <View style={styles.specList}>
         {readiness.specs.map((spec) => (
           <View key={spec.label} style={styles.specRow}>
@@ -659,6 +700,35 @@ const styles = StyleSheet.create({
     color: theme.colors.ink,
     fontFamily: "Nunito_600SemiBold",
     fontWeight: "600",
+  },
+  pickBlock: {
+    marginTop: theme.spacing.sm,
+    paddingTop: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    gap: 6,
+  },
+  pickRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+  },
+  pickText: {
+    flex: 1,
+    ...theme.typography.legal,
+    color: theme.colors.body,
+    lineHeight: 17,
+  },
+  pickStrong: {
+    color: theme.colors.ink,
+    fontFamily: "Nunito_600SemiBold",
+    fontWeight: "600",
+  },
+  pickMeta: {
+    flex: 1,
+    ...theme.typography.legal,
+    color: theme.colors.muted,
+    lineHeight: 17,
   },
   verdictDismiss: {
     marginTop: theme.spacing.sm,

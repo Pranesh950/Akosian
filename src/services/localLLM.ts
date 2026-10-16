@@ -19,6 +19,7 @@ import {
   isModelDownloaded,
   type LlamaModel,
 } from "./providers/llamaProvider";
+import { applyRecommendationAutomatically } from "./localModel";
 
 // ── Shared provider state ──────────────────────────────────────
 
@@ -109,6 +110,18 @@ export async function initializeLLM(): Promise<void> {
   const promise = (async () => {
     const provider = await selectProvider();
     const isLlama = provider.name === llamaProvider.name;
+
+    // On the downloaded-model rung, let the device check correct the selection
+    // before the model loads — but only when it can do so without a surprise
+    // download, or when the current pick cannot physically run here. Anything
+    // else is surfaced in the picker for the user to apply.
+    if (isLlama) {
+      try {
+        await applyRecommendationAutomatically();
+      } catch (e) {
+        console.warn("[LLM] Local model recommendation failed:", e);
+      }
+    }
 
     // A provider choice changed while selection was in flight. Do not let the
     // stale provider become active or send anything on the old path.

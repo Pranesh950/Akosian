@@ -419,7 +419,7 @@ export default function HomeScreen() {
             <BandGauge
               label="Sleep"
               score={hasSleep ? sleepScore : 0}
-              color={hasSleep ? theme.colors.info : theme.colors.muted}
+              color={hasSleep ? theme.colors.sleep : theme.colors.muted}
               size={130}
             />
             {hasSleep && sleepGoal != null && (
@@ -494,7 +494,7 @@ export default function HomeScreen() {
             value={fmt(data?.heartRateVariability)}
             unit="ms"
             icon="waveform"
-            accent={theme.colors.lilac}
+            accent={theme.colors.danger}
           />
           <VitalSignCard
             label="Resting HR"
@@ -517,14 +517,14 @@ export default function HomeScreen() {
             value={fmt(data?.respiratoryRate, 1)}
             unit="rpm"
             icon="lungs"
-            accent={theme.colors.sky}
+            accent={theme.colors.sleep}
           />
           <VitalSignCard
             label="Blood O₂"
             value={fmt(data?.bloodOxygen)}
             unit="%"
             icon="water-outline"
-            accent={theme.colors.success}
+            accent={theme.colors.danger}
           />
           <VitalSignCard
             label="Avg HR"
@@ -537,7 +537,7 @@ export default function HomeScreen() {
             }
             unit="bpm"
             icon="heart-outline"
-            accent={theme.colors.coral}
+            accent={theme.colors.danger}
           />
         </View>
       </Animated.View>

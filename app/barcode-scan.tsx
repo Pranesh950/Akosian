@@ -6,13 +6,14 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -24,6 +25,8 @@ import { searchFoodByBarcode, getFoodDatabaseAttribution } from "../src/services
 
 type ScanStatus = "idle" | "searching" | "not_found";
 
+const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e", "code128", "itf14"] as const;
+
 export default function BarcodeScanScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -31,14 +34,29 @@ export default function BarcodeScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [status, setStatus] = useState<ScanStatus>("idle");
   const [lastCode, setLastCode] = useState<string | null>(null);
+  const [torchOn, setTorchOn] = useState(false);
+  const [zoom, setZoom] = useState(0);
+  const [useLegacy, setUseLegacy] = useState(false);
+  const [launching, setLaunching] = useState(false);
   const busyRef = useRef(false);
 
+  const modernAvailable =
+    CameraView.isModernBarcodeScannerAvailable === true && !useLegacy;
+
   const handleBarcode = useCallback(
-    async ({ data }: { data: string }) => {
+    async ({ data, type }: { data: string; type?: string }) => {
       if (busyRef.current || !data) return;
       busyRef.current = true;
       setStatus("searching");
       setLastCode(data.trim());
+      // Dismiss the native modal on iOS so the lookup UI is visible.
+      if (Platform.OS === "ios" && modernAvailable) {
+        try {
+          await CameraView.dismissScanner();
+        } catch {
+          // Non-fatal — lookup continues underneath.
+        }
+      }
       try {
         const food = await searchFoodByBarcode(data);
         if (food) {
@@ -52,17 +70,73 @@ export default function BarcodeScanScreen() {
         }
         setStatus("not_found");
       } catch (e) {
-        console.warn("[Barcode] Lookup failed:", e);
+        console.warn("[Barcode] Lookup failed:", e, type);
         setStatus("not_found");
       } finally {
         busyRef.current = false;
       }
     },
-    [router]
+    [router, modernAvailable]
   );
+
+  // Subscribe to the native system scanner (ML Kit on Android,
+  // DataScannerViewController on iOS 16+). It handles autofocus,
+  // auto-zoom, low-light and guidance — far more reliable for
+  // close-up EAN/UPC than the legacy frame detector.
+  useEffect(() => {
+    if (!modernAvailable || !permission?.granted) return;
+    const sub = CameraView.onModernBarcodeScanned((event) => {
+      void handleBarcode({ data: event.data, type: event.type });
+    });
+    return () => sub.remove();
+  }, [modernAvailable, permission?.granted, handleBarcode]);
+
+  const launchModernScanner = useCallback(async () => {
+    if (launching || busyRef.current) return;
+    setLaunching(true);
+    try {
+      await CameraView.launchScanner({
+        barcodeTypes: [...BARCODE_TYPES],
+        // iOS-only options; ignored on Android.
+        isGuidanceEnabled: true,
+        isHighlightingEnabled: true,
+        isPinchToZoomEnabled: true,
+      });
+    } catch (e) {
+      // User cancelled or device doesn't support it — fall back to
+      // the embedded CameraView instead of stranding the user.
+      console.warn("[Barcode] Modern scanner failed, using fallback:", e);
+      setUseLegacy(true);
+    } finally {
+      setLaunching(false);
+    }
+  }, [launching]);
+
+  // Auto-open the native scanner as soon as permissions are ready.
+  const autoLaunchedRef = useRef(false);
+  useEffect(() => {
+    if (
+      modernAvailable &&
+      permission?.granted &&
+      status === "idle" &&
+      !autoLaunchedRef.current
+    ) {
+      autoLaunchedRef.current = true;
+      void launchModernScanner();
+    }
+  }, [modernAvailable, permission?.granted, status, launchModernScanner]);
 
   const resetScanner = useCallback(() => {
     setStatus("idle");
+    if (modernAvailable) {
+      void launchModernScanner();
+    }
+  }, [modernAvailable, launchModernScanner]);
+
+  const cycleZoom = useCallback(() => {
+    // 0 → 0.25 → 0.5 → 0 helps tiny barcodes fill the frame
+    // without forcing the user to hold the phone awkwardly close.
+    setZoom((z) => (z >= 0.5 ? 0 : Number((z + 0.25).toFixed(2))));
   }, []);
 
   // Camera permission still loading.
@@ -100,22 +174,125 @@ export default function BarcodeScanScreen() {
     );
   }
 
+  // Modern native scanner path: lightweight screen that delegates the
+  // viewfinder to the OS. Covers searching / not-found states.
+  if (modernAvailable) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <View style={styles.topBarAbsolute}>
+          <TouchableOpacity style={styles.closeBtn} onPress={handleBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <MaterialCommunityIcons name="close" size={24} color={theme.colors.ink} />
+          </TouchableOpacity>
+        </View>
+        {status === "searching" ? (
+          <>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={[styles.permissionTitle, { marginTop: 16 }]}>Looking up product…</Text>
+            <Text style={styles.permissionText}>{lastCode ?? ""}</Text>
+          </>
+        ) : status === "not_found" ? (
+          <>
+            <View style={styles.permissionIcon}>
+              <MaterialCommunityIcons name="food-off" size={34} color={theme.colors.warning} />
+            </View>
+            <Text style={styles.permissionTitle}>Barcode not in database</Text>
+            <Text style={styles.permissionText}>
+              Scanned code: {lastCode ?? "—"}{"\n\n"}
+              The offline database covers ~313,000 barcodes, mostly US and
+              European packaged products. Regional or newer items often
+              aren't in it yet — search manually or log with the AI assistant.
+            </Text>
+            <TouchableOpacity style={styles.permissionBtn} onPress={resetScanner} activeOpacity={0.85}>
+              <Text style={styles.permissionBtnText}>Scan again</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.permissionBtn, styles.ghostBtn]}
+              onPress={() => router.replace("/food-chat?mode=search")}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.ghostBtnText}>Search manually</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.permissionBack} onPress={() => setUseLegacy(true)}>
+              <Text style={styles.permissionBackText}>Use manual camera instead</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <View style={styles.permissionIcon}>
+              <MaterialCommunityIcons name="barcode-scan" size={34} color={theme.colors.primary} />
+            </View>
+            <Text style={styles.permissionTitle}>Ready to scan</Text>
+            <Text style={styles.permissionText}>
+              The system scanner handles focus and zoom automatically. Hold
+              the barcode 10–20 cm away until it locks on.
+            </Text>
+            <TouchableOpacity
+              style={styles.permissionBtn}
+              onPress={() => void launchModernScanner()}
+              activeOpacity={0.85}
+              disabled={launching}
+            >
+              {launching ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.permissionBtnText}>Open scanner</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.permissionBack} onPress={() => setUseLegacy(true)}>
+              <Text style={styles.permissionBackText}>Use manual camera instead</Text>
+            </TouchableOpacity>
+          </>
+        )}
+        <Text style={[styles.attribution, { color: theme.colors.muted, marginTop: 24 }]}>
+          {getFoodDatabaseAttribution()}
+        </Text>
+      </View>
+    );
+  }
+
+  // Legacy fallback: embedded CameraView for devices without the
+  // system scanner. Torch + zoom controls fix the two most common
+  // close-up failures (dark / too-small barcode hunting focus).
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <CameraView
         style={StyleSheet.absoluteFill}
         facing="back"
+        autofocus="off"
+        enableTorch={torchOn}
+        zoom={zoom}
         barcodeScannerSettings={{
-          barcodeTypes: ["ean13", "ean8", "upc_a", "upc_e", "code128", "itf14"],
+          barcodeTypes: [...BARCODE_TYPES],
         }}
         onBarcodeScanned={status === "idle" ? handleBarcode : undefined}
       >
         <View style={styles.topBar}>
-          <TouchableOpacity style={styles.closeBtn} onPress={handleBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <TouchableOpacity style={styles.closeBtnDark} onPress={handleBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <MaterialCommunityIcons name="close" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.topTitle}>Scan a barcode</Text>
-          <View style={styles.closeBtn} />
+          <View style={styles.topActions}>
+            <TouchableOpacity
+              style={[styles.iconBtn, torchOn && styles.iconBtnActive]}
+              onPress={() => setTorchOn((v) => !v)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Toggle torch"
+            >
+              <MaterialCommunityIcons
+                name={torchOn ? "flashlight" : "flashlight-off"}
+                size={22}
+                color="#FFFFFF"
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={cycleZoom}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Cycle zoom"
+            >
+              <MaterialCommunityIcons name="magnify-plus-outline" size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.midArea}>
@@ -125,6 +302,12 @@ export default function BarcodeScanScreen() {
             <View style={[styles.frameCorner, styles.cornerBL]} />
             <View style={[styles.frameCorner, styles.cornerBR]} />
           </View>
+
+          {zoom > 0 && (
+            <View style={styles.zoomPill}>
+              <Text style={styles.zoomPillText}>{Math.round(zoom * 100)}% zoom — tap + to change</Text>
+            </View>
+          )}
 
           {status === "searching" && (
             <View style={styles.statusCard}>
@@ -161,7 +344,7 @@ export default function BarcodeScanScreen() {
 
         <View style={styles.bottomHint}>
           <Text style={styles.bottomHintText}>
-            Point the camera at the product's barcode
+            Hold 10–20 cm away, steady. Use light + zoom for small codes.
           </Text>
           <Text style={styles.attribution}>{getFoodDatabaseAttribution()}</Text>
         </View>
@@ -179,6 +362,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: theme.spacing.xxl,
+    backgroundColor: theme.colors.bg,
+  },
+  topBarAbsolute: {
+    position: "absolute",
+    top: 12,
+    left: 16,
   },
   topBar: {
     flexDirection: "row",
@@ -192,9 +381,34 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: theme.colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeBtnDark: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "rgba(0,0,0,0.45)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  topActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconBtnActive: {
+    backgroundColor: theme.colors.primary,
   },
   topTitle: {
     ...theme.typography.titleSm,
@@ -246,6 +460,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 4,
     borderRightWidth: 4,
     borderBottomRightRadius: 18,
+  },
+  zoomPill: {
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "rgba(0,0,0,0.55)",
+  },
+  zoomPillText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontFamily: "Nunito_600SemiBold",
   },
   statusCard: {
     width: 300,
@@ -311,6 +537,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Nunito_600SemiBold",
     fontWeight: "600",
+    textAlign: "center",
   },
   attribution: {
     color: "rgba(255,255,255,0.55)",
@@ -346,10 +573,20 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.md,
     borderRadius: theme.radii.lg,
     backgroundColor: theme.colors.primary,
+    marginBottom: theme.spacing.sm,
   },
   permissionBtnText: {
     ...theme.typography.labelMd,
     color: "#FFFFFF",
+  },
+  ghostBtn: {
+    backgroundColor: theme.colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  ghostBtnText: {
+    ...theme.typography.labelMd,
+    color: theme.colors.ink,
   },
   permissionBack: {
     marginTop: theme.spacing.md,

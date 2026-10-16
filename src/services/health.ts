@@ -6,7 +6,7 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-import { Linking, Platform } from "react-native";
+import { Linking, NativeModules, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { clearByokConfig } from "./providers/byok";
 
@@ -449,17 +449,59 @@ async function resolveDataSourceFilter(): Promise<string[] | undefined> {
   return filter;
 }
 
+/**
+ * Resolves the native HealthKit bridge.
+ *
+ * `react-native-health`'s entry point builds its export with
+ * `Object.assign({}, NativeModules.AppleHealthKit, …)`. Under React Native's
+ * New Architecture (0.76+, and what this app builds with) that native module
+ * is a lazily resolved proxy whose methods are not own enumerable properties,
+ * so the copy keeps only the JS-side `Constants` and every native method —
+ * `initHealthKit`, `isAvailable`, all the sample getters — comes back
+ * `undefined`. Tapping Connect then has nothing to call, so iOS reports
+ * "Health access could not be requested" even though the build is fine.
+ *
+ * Property access on the proxy does work, so read the native module directly
+ * and layer the package's `Constants` (the one part `Object.assign` does copy)
+ * onto a thin wrapper that inherits from it: own properties win for
+ * `Constants`, and every native method is still reached through the proxy.
+ * Returns null when the bridge is not compiled into this build (e.g. Expo Go),
+ * so callers can report HealthKit as unavailable instead of half-working.
+ */
+function resolveHealthKitModule(): any | null {
+  let pkg: any = null;
+  try {
+    pkg = require("react-native-health");
+    // Default export may be nested depending on interop
+    if (pkg?.default) pkg = pkg.default;
+  } catch {
+    return null;
+  }
+
+  const native = (NativeModules as any)?.AppleHealthKit;
+  if (native && typeof native.initHealthKit === "function") {
+    const constants = pkg?.Constants ?? native.Constants;
+    if (!constants) return native;
+    try {
+      // Object.create() does not enumerate the proxy, so this wrapper inherits
+      // every native method while owning the JS constant map.
+      const module = Object.create(native);
+      module.Constants = constants;
+      return module;
+    } catch {
+      return native;
+    }
+  }
+
+  // Legacy (non-bridgeless) builds: the package's own copy keeps its methods.
+  if (typeof pkg?.initHealthKit === "function") return pkg;
+  return null;
+}
+
 async function getModules() {
   if (Platform.OS === "ios") {
-    if (!healthKit) {
-      try {
-        healthKit = require("react-native-health");
-        // Default export may be nested depending on interop
-        if (healthKit?.default) healthKit = healthKit.default;
-      } catch {
-        return null;
-      }
-    }
+    // Retried while unresolved so a later call can still pick the module up.
+    if (!healthKit) healthKit = resolveHealthKitModule();
     if (!healthKit) return null;
     return { type: "healthkit" as const, module: healthKit };
   }
@@ -1025,10 +1067,25 @@ export const HealthService = {
         const opts = { permissions: { read, write: [] as string[] } };
         const ok = await new Promise<boolean>((resolve) => {
           if (typeof ctx.module.initHealthKit !== "function") {
+            console.warn(
+              "[HealthService] HealthKit bridge is missing initHealthKit — the native module is not in this build."
+            );
             resolve(false);
             return;
           }
-          ctx.module.initHealthKit(opts, (err: any) => resolve(!err));
+          ctx.module.initHealthKit(opts, (err: any) => {
+            // Surface the real HealthKit error (missing entitlement, a
+            // malformed read type, Health data unavailable on the device) so a
+            // failed Connect tap is diagnosable instead of a dead end.
+            if (err) {
+              console.warn(
+                "[HealthService] initHealthKit failed:",
+                err?.message ?? err,
+                err?.userInfo ?? ""
+              );
+            }
+            resolve(!err);
+          });
         });
         if (ok) await markHealthKitSetupRequested();
         return ok;
@@ -1209,7 +1266,10 @@ export const HealthService = {
       if (ctx.type === "healthkit") {
         return new Promise<boolean>((resolve) => {
           if (typeof ctx.module.isAvailable !== "function") {
-            resolve(true); // assume available on iOS device builds
+            // The native bridge is absent, so HealthKit really is unavailable;
+            // claiming otherwise sent users into a Connect tap that could only
+            // fail. getModules() returns null for that case too.
+            resolve(false);
             return;
           }
           ctx.module.isAvailable((err: any, available: boolean) => {
