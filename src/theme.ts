@@ -258,3 +258,32 @@ export function formatSleepDuration(
   if (m === 0) return `${h}h`;
   return `${h}h ${m}m`;
 }
+
+function channel(hex: string, index: number): number {
+  return parseInt(hex.slice(1 + index * 2, 3 + index * 2), 16);
+}
+
+/**
+ * Composite a translucent tint over an opaque base and return the resulting
+ * solid color — `solidTint(colors.sleep, "10")` is what `${colors.sleep}10`
+ * actually looks like over the canvas.
+ *
+ * Needed because Android paints an elevated view's shadow *through* a
+ * translucent background, so a tinted card with `theme.shadows.card` shows the
+ * shadow as a smudge across its own surface (the sleep/strain hero cards). Use
+ * this anywhere a tinted card also carries a shadow.
+ *
+ * `alphaSuffix` is the two hex digits you would have put in the color string.
+ */
+export function solidTint(hex: string, alphaSuffix: string, base: string = colors.bg): string {
+  const alpha = parseInt(alphaSuffix, 16) / 255;
+  return (
+    "#" +
+    [0, 1, 2]
+      .map((i) => {
+        const mixed = Math.round(channel(hex, i) * alpha + channel(base, i) * (1 - alpha));
+        return mixed.toString(16).padStart(2, "0");
+      })
+      .join("")
+  );
+}

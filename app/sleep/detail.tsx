@@ -14,6 +14,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Animated,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
@@ -21,7 +22,7 @@ import { useGoBack } from "../../src/hooks/useGoBack";
 import { HealthService, HealthData, MetricSample, computeSleepScore } from "../../src/services/health";
 import { BandGauge } from "../../src/components/BandGauge";
 import { RefreshButton } from "../../src/components/RefreshButton";
-import { theme, formatFriendlyDate, formatSleepDuration } from "../../src/theme";
+import { theme, formatFriendlyDate, formatSleepDuration, solidTint } from "../../src/theme";
 import { GradientWash } from "../../src/components/GradientWash";
 import { loadPlan } from "../../src/services/coachPlan";
 
@@ -578,7 +579,12 @@ const styles = StyleSheet.create({
   hero: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: `${theme.colors.sleep}10`,
+    // Android draws this card's shadow *through* a translucent background, so
+    // the tint has to be opaque or the shadow smudges across the gauge.
+    backgroundColor: Platform.select({
+      android: solidTint(theme.colors.sleep, "10"),
+      default: `${theme.colors.sleep}10`,
+    }),
     borderRadius: theme.radii.lg,
     borderWidth: 1,
     borderColor: theme.colors.border,
