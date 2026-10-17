@@ -1,0 +1,321 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+@font-face { font-family: "Nunito"; font-weight: 400; src: url("../node_modules/@expo-google-fonts/nunito/400Regular/Nunito_400Regular.ttf"); }
+@font-face { font-family: "Nunito"; font-weight: 500; src: url("../node_modules/@expo-google-fonts/nunito/500Medium/Nunito_500Medium.ttf"); }
+@font-face { font-family: "Nunito"; font-weight: 600; src: url("../node_modules/@expo-google-fonts/nunito/600SemiBold/Nunito_600SemiBold.ttf"); }
+@font-face { font-family: "Nunito"; font-weight: 700; src: url("../node_modules/@expo-google-fonts/nunito/700Bold/Nunito_700Bold.ttf"); }
+@font-face { font-family: "MaterialCommunityIcons"; src: url("../node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf"); }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1032px; height: 1376px; overflow: hidden; }
+body {
+  background: #F7F7F9;
+  font-family: "Nunito", -apple-system, sans-serif;
+  color: #202126;
+  -webkit-font-smoothing: antialiased;
+}
+.mi { font-family: "MaterialCommunityIcons"; line-height: 1; display: inline-block; }
+
+.screen { position: relative; width: 1032px; height: 1376px; overflow: hidden; }
+.wash {
+  position: absolute; top: 0; left: 0; right: 0; height: 280px;
+  background: linear-gradient(to bottom, rgba(91,123,225,0.14), rgba(91,123,225,0));
+}
+
+/* iOS status bar (24pt safe area on iPad portrait) */
+.statusbar {
+  height: 24px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px 0 34px; position: relative;
+}
+.statusbar .time { font: 600 14px -apple-system, "Helvetica Neue", sans-serif; letter-spacing: 0.2px; color: #202126; }
+.statusbar .right { display: flex; align-items: center; gap: 7px; }
+
+.header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 20px 24px 16px 24px;
+}
+.greeting { font-size: 34px; font-weight: 700; letter-spacing: -1px; line-height: 41px; color: #202126; }
+.dateText { font-size: 12px; font-weight: 500; letter-spacing: 0.2px; color: #9698A1; margin-top: 2px; }
+.headerRight { display: flex; align-items: center; gap: 12px; padding-top: 6px; }
+.headerIconButton {
+  width: 38px; height: 38px; border-radius: 19px; background: #FFFFFF;
+  border: 1px solid #E7E8EC; display: flex; align-items: center; justify-content: center;
+}
+.statusPill {
+  display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 9999px;
+  background: #FFFFFF; border: 1px solid #E7E8EC;
+}
+.statusDot { width: 6px; height: 6px; border-radius: 3px; background: #55A477; }
+.statusText { font-size: 11px; font-weight: 400; color: #666871; }
+
+.content { padding: 8px 24px 152px 24px; }
+
+.bandsCard {
+  display: flex; align-items: center; justify-content: space-around;
+  background: #FFFFFF; border: 1px solid #E7E8EC; border-radius: 30px;
+  padding: 24px 16px; margin-bottom: 20px;
+  box-shadow: 0 3px 12px rgba(32,33,38,0.055);
+}
+.gaugeTouchable { padding: 4px; border-radius: 16px; }
+.gauge { display: flex; flex-direction: column; align-items: center; }
+.gaugeScore { font-weight: 700; letter-spacing: -1.4px; line-height: 1.15; margin-top: -28px; }
+.gaugeLabel { font-size: 12px; font-weight: 500; letter-spacing: 0.3px; color: #666871; margin-top: -2px; }
+.sleepGoalCaption { font-size: 11px; color: #9698A1; margin-top: 4px; text-align: center; }
+.sleepGoalCaptionHit { color: #55A477; font-weight: 600; }
+.ringDivider { width: 0.5px; height: 78px; background: #E7E8EC; }
+
+.sectionTitle { font-size: 16px; font-weight: 600; letter-spacing: -0.1px; margin: 8px 0 12px 0; }
+
+.snapshotRow { display: flex; gap: 12px; margin-bottom: 20px; }
+.snapshotCard {
+  flex: 1; background: #FFFFFF; border: 1px solid #E7E8EC; border-radius: 16px;
+  padding: 16px 12px; box-shadow: 0 2px 7px rgba(32,33,38,0.035);
+}
+.snapshotIcon {
+  width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center;
+  justify-content: center; margin-bottom: 12px;
+}
+.snapshotLabel { font-size: 11px; color: #9698A1; text-transform: uppercase; margin-bottom: 4px; }
+.snapshotValue { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; line-height: 1.25; }
+.snapshotUnit { font-size: 11px; color: #9698A1; margin-top: 1px; }
+
+.vitalGrid { display: flex; flex-wrap: wrap; gap: 12px; }
+.vitalCard {
+  width: 48%; flex-grow: 1; background: #FFFFFF; border: 1px solid #E7E8EC;
+  border-radius: 16px; padding: 16px; position: relative; overflow: hidden;
+  box-shadow: 0 2px 7px rgba(32,33,38,0.035);
+}
+.vitalCardEmpty { opacity: 0.85; }
+.vitalAccent { position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+.vitalTop { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.vitalIconWrap {
+  width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center;
+  justify-content: center;
+}
+.vitalLabel { font-size: 11px; color: #9698A1; text-transform: uppercase; }
+.vitalValueRow { display: flex; align-items: baseline; gap: 4px; }
+.vitalValue { font-size: 30px; font-weight: 700; letter-spacing: -0.6px; line-height: 1.15; }
+.vitalValueEmpty { color: #9698A1; }
+.vitalUnit { font-size: 12px; font-weight: 500; letter-spacing: 0.2px; color: #9698A1; }
+
+/* Bottom bar */
+.tabContainer { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 16px 32px 16px; }
+.tabRow { display: flex; align-items: center; gap: 12px; }
+.plusButton {
+  width: 68px; height: 68px; border-radius: 34px; background: #202126;
+  display: flex; align-items: center; justify-content: center; flex: none;
+  box-shadow: 0 7px 18px rgba(32,33,38,0.14);
+}
+.tabBar {
+  flex: 1; display: flex; height: 80px; border-radius: 26px; background: #FFFFFF;
+  border: 1px solid #E7E8EC; position: relative; overflow: hidden;
+  box-shadow: 0 3px 12px rgba(32,33,38,0.055);
+}
+.indicator {
+  position: absolute; top: 4px; bottom: 4px; background: #F0F1F4;
+  border-radius: 20px;
+}
+.tabItem {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 5px; padding: 12px 0; z-index: 10;
+}
+.tabLabel { font-size: 13px; font-weight: 600; }
+.tabLabelActive { color: #202126; }
+.tabLabelInactive { color: #9698A1; }
+.homeIndicator {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: 8px;
+  width: 140px; height: 5px; border-radius: 3px; background: #202126; opacity: 0.9;
+}
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="wash"></div>
+
+  <div class="statusbar">
+    <div class="time">9:41</div>
+    <div class="right">
+      <svg width="18" height="12" viewBox="0 0 18 12" fill="none">
+        <rect x="0" y="8" width="3" height="4" rx="1" fill="#202126"/>
+        <rect x="5" y="6" width="3" height="6" rx="1" fill="#202126"/>
+        <rect x="10" y="3" width="3" height="9" rx="1" fill="#202126"/>
+        <rect x="15" y="0" width="3" height="12" rx="1" fill="#202126"/>
+      </svg>
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
+        <path d="M8 10.2a1.3 1.3 0 100 2.6 1.3 1.3 0 000-2.6z" fill="#202126"/>
+        <path d="M1.6 5.6a9.2 9.2 0 0112.8 0" stroke="#202126" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M4.2 8.1a5.6 5.6 0 017.6 0" stroke="#202126" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <svg width="26" height="13" viewBox="0 0 26 13" fill="none">
+        <rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="#202126" stroke-opacity="0.4"/>
+        <rect x="2" y="2" width="17" height="9" rx="2" fill="#202126"/>
+        <path d="M24.2 4.2v5.6a3 3 0 000-5.6z" fill="#202126" fill-opacity="0.45"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="header">
+    <div>
+      <div class="greeting">Overview</div>
+      <div class="dateText">Today, October 17</div>
+    </div>
+    <div class="headerRight">
+      <div class="headerIconButton"><span class="mi" style="font-size:18px;color:#202126;">󰓦</span></div>
+      <div class="headerIconButton"><span class="mi" style="font-size:20px;color:#202126;">󰢻</span></div>
+      <div class="statusPill">
+        <div class="statusDot"></div>
+        <div class="statusText">Health</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="bandsCard">
+      <div class="gaugeTouchable">
+        <div class="gauge" style="width:130px">
+    <svg width="130" height="65" style="display:block"><path d="M 15.787981914267775 47.6945063082657 A 49.4 49.4 0 0 1 18.579184533176125 35.10420491971197" stroke="#6B83A5" stroke-width="6" fill="none" stroke-linecap="butt" opacity="1" /><path d="M 19.1971175844007 33.494434285253945 A 49.4 49.4 0 0 1 25.54740580366372 22.270337856288826" stroke="#6B83A5" stroke-width="6" fill="none" stroke-linecap="butt" opacity="1" /><path d="M 26.608989504025644 20.911572682138022 A 49.4 49.4 0 0 1 35.96340853675182 12.034560477877605" stroke="#6B83A5" stroke-width="6" fill="none" stroke-linecap="butt" opacity="1" /><path d="M 37.37587056854508 11.045543915780954 A 49.4 49.4 0 0 1 48.91693316981646 5.291382365393751" stroke="#6B83A5" stroke-width="6" fill="none" stroke-linecap="butt" opacity="1" /><path d="M 50.55683778669679 4.758545055426055 A 49.4 49.4 0 0 1 63.275964862896416 2.630093145256673" stroke="#6B83A5" stroke-width="6" fill="none" stroke-linecap="butt" opacity="1" /><path d="M 64.99999999999999 2.6000000000000014 A 49.4 49.4 0 0 1 77.78566082806455 4.283264181320035" stroke="#6B83A5" stroke-width="6" fill="none" stroke-linecap="butt" opacity="1" /><path d="M 79.4431622133032 4.7585450554260476 A 49.4 49.4 0 0 1 91.17801165312031 10.106424049872551" stroke="#6B83A5" stroke-width="6" fill="none" stroke-linecap="butt" opacity="1" /><path d="M 92.62412943145486 11.045543915780925 A 49.4 49.4 0 0 1 102.28265326300493 19.590683967868934" stroke="#6B83A5" stroke-width="6" fill="none" stroke-linecap="butt" opacity="1" /><path d="M 103.39101049597434 20.91157268213801 A 49.4 49.4 0 0 1 110.12914560754449 31.90720983205547" stroke="#E7E8EC" stroke-width="6" fill="none" stroke-linecap="butt" opacity="0.5" /><path d="M 110.8028824155993 33.49443428525393 A 49.4 49.4 0 0 1 114.0317798910813 45.97965443578568" stroke="#E7E8EC" stroke-width="6" fill="none" stroke-linecap="butt" opacity="0.5" /></svg>
+    <div class="gaugeScore" style="color:#6B83A5;font-size:28px">82</div>
+    <div class="gaugeLabel">Sleep</div>
+  </div>
+        <div class="sleepGoalCaption sleepGoalCaptionHit">7h 24m of 8h goal</div>
+      </div>
+      <div class="ringDivider"></div>
+      <div class="gaugeTouchable">
+        <div class="gauge" style="width:130px">
+    <svg width="130" height="65" style="display:block"><path d="M 15.787981914267775 47.6945063082657 A 49.4 49.4 0 0 1 18.579184533176125 35.10420491971197" stroke="#E56F63" stroke-width="6" fill="none" stroke-linecap="butt" opacity="1" /><path d="M 19.1971175844007 33.494434285253945 A 49.4 49.4 0 0 1 25.54740580366372 22.270337856288826" stroke="#E56F63" stroke-width="6" fill="none" stroke-linecap="butt" opacity="1" /><path d="M 26.608989504025644 20.911572682138022 A 49.4 49.4 0 0 1 35.96340853675182 12.034560477877605" stroke="#E56F63" stroke-width="6" fill="none" stroke-linecap="butt" opacity="1" /><path d="M 37.37587056854508 11.045543915780954 A 49.4 49.4 0 0 1 48.91693316981646 5.291382365393751" stroke="#E56F63" stroke-width="6" fill="none" stroke-linecap="butt" opacity="1" /><path d="M 50.55683778669679 4.758545055426055 A 49.4 49.4 0 0 1 63.275964862896416 2.630093145256673" stroke="#E56F63" stroke-width="6" fill="none" stroke-linecap="butt" opacity="1" /><path d="M 64.99999999999999 2.6000000000000014 A 49.4 49.4 0 0 1 77.78566082806455 4.283264181320035" stroke="#E56F63" stroke-width="6" fill="none" stroke-linecap="butt" opacity="1" /><path d="M 79.4431622133032 4.7585450554260476 A 49.4 49.4 0 0 1 91.17801165312031 10.106424049872551" stroke="#E7E8EC" stroke-width="6" fill="none" stroke-linecap="butt" opacity="0.5" /><path d="M 92.62412943145486 11.045543915780925 A 49.4 49.4 0 0 1 102.28265326300493 19.590683967868934" stroke="#E7E8EC" stroke-width="6" fill="none" stroke-linecap="butt" opacity="0.5" /><path d="M 103.39101049597434 20.91157268213801 A 49.4 49.4 0 0 1 110.12914560754449 31.90720983205547" stroke="#E7E8EC" stroke-width="6" fill="none" stroke-linecap="butt" opacity="0.5" /><path d="M 110.8028824155993 33.49443428525393 A 49.4 49.4 0 0 1 114.0317798910813 45.97965443578568" stroke="#E7E8EC" stroke-width="6" fill="none" stroke-linecap="butt" opacity="0.5" /></svg>
+    <div class="gaugeScore" style="color:#E56F63;font-size:28px">61</div>
+    <div class="gaugeLabel">Strain</div>
+  </div>
+      </div>
+    </div>
+
+    <div class="sectionTitle">Today</div>
+    <div class="snapshotRow">
+      
+  <div class="snapshotCard">
+    <div class="snapshotIcon" style="background:#55A47714"><span class="mi" style="font-size:15px;color:#55A477;">󰷺</span></div>
+    <div class="snapshotLabel">Steps</div>
+    <div class="snapshotValue">8,432</div>
+    
+  </div>
+      
+  <div class="snapshotCard">
+    <div class="snapshotIcon" style="background:#D69A4314"><span class="mi" style="font-size:15px;color:#D69A43;">󰈸</span></div>
+    <div class="snapshotLabel">Active cal</div>
+    <div class="snapshotValue">512</div>
+    <div class="snapshotUnit">kcal</div>
+  </div>
+      
+  <div class="snapshotCard">
+    <div class="snapshotIcon" style="background:#5B7BE114"><span class="mi" style="font-size:15px;color:#5B7BE1;">󰣰</span></div>
+    <div class="snapshotLabel">Distance</div>
+    <div class="snapshotValue">6.1 km</div>
+    
+  </div>
+    </div>
+
+    <div class="sectionTitle">Vitals</div>
+    <div class="vitalGrid">
+      
+  <div class="vitalCard">
+    <div class="vitalAccent" style="background:#E56F63"></div>
+    <div class="vitalTop">
+      <div class="vitalIconWrap" style="background:#E56F6314"><span class="mi" style="font-size:15px;color:#E56F63;">󱑽</span></div>
+      <div class="vitalLabel">HRV</div>
+    </div>
+    <div class="vitalValueRow">
+      <div class="vitalValue">58</div>
+      <div class="vitalUnit">ms</div>
+    </div>
+  </div>
+      
+  <div class="vitalCard">
+    <div class="vitalAccent" style="background:#E56F63"></div>
+    <div class="vitalTop">
+      <div class="vitalIconWrap" style="background:#E56F6314"><span class="mi" style="font-size:15px;color:#E56F63;">󰗶</span></div>
+      <div class="vitalLabel">Resting HR</div>
+    </div>
+    <div class="vitalValueRow">
+      <div class="vitalValue">54</div>
+      <div class="vitalUnit">bpm</div>
+    </div>
+  </div>
+      
+  <div class="vitalCard">
+    <div class="vitalAccent" style="background:#6B83A5"></div>
+    <div class="vitalTop">
+      <div class="vitalIconWrap" style="background:#6B83A514"><span class="mi" style="font-size:15px;color:#6B83A5;">󰖔</span></div>
+      <div class="vitalLabel">Sleep</div>
+    </div>
+    <div class="vitalValueRow">
+      <div class="vitalValue">7h 24m</div>
+      
+    </div>
+  </div>
+      
+  <div class="vitalCard">
+    <div class="vitalAccent" style="background:#6B83A5"></div>
+    <div class="vitalTop">
+      <div class="vitalIconWrap" style="background:#6B83A514"><span class="mi" style="font-size:15px;color:#6B83A5;">󱂄</span></div>
+      <div class="vitalLabel">Resp. rate</div>
+    </div>
+    <div class="vitalValueRow">
+      <div class="vitalValue">14.2</div>
+      <div class="vitalUnit">rpm</div>
+    </div>
+  </div>
+      
+  <div class="vitalCard">
+    <div class="vitalAccent" style="background:#E56F63"></div>
+    <div class="vitalTop">
+      <div class="vitalIconWrap" style="background:#E56F6314"><span class="mi" style="font-size:15px;color:#E56F63;">󰸊</span></div>
+      <div class="vitalLabel">Blood O₂</div>
+    </div>
+    <div class="vitalValueRow">
+      <div class="vitalValue">98</div>
+      <div class="vitalUnit">%</div>
+    </div>
+  </div>
+      
+  <div class="vitalCard">
+    <div class="vitalAccent" style="background:#E56F63"></div>
+    <div class="vitalTop">
+      <div class="vitalIconWrap" style="background:#E56F6314"><span class="mi" style="font-size:15px;color:#E56F63;">󰋕</span></div>
+      <div class="vitalLabel">Avg HR</div>
+    </div>
+    <div class="vitalValueRow">
+      <div class="vitalValue">71</div>
+      <div class="vitalUnit">bpm</div>
+    </div>
+  </div>
+    </div>
+  </div>
+
+  <div class="tabContainer">
+    <div class="tabRow">
+      <div class="plusButton"><span class="mi" style="font-size:28px;color:#FFFFFF;">󰐕</span></div>
+      <div class="tabBar">
+        <div class="indicator" style="left:4px;width:222px"></div>
+        <div class="tabItem">
+          <span class="mi" style="font-size:26px;color:#202126;">󰋜</span>
+          <div class="tabLabel tabLabelActive">Home</div>
+        </div><div class="tabItem">
+          <span class="mi" style="font-size:26px;color:#9698A1;">󰺿</span>
+          <div class="tabLabel tabLabelInactive">Journal</div>
+        </div><div class="tabItem">
+          <span class="mi" style="font-size:26px;color:#9698A1;">󰜎</span>
+          <div class="tabLabel tabLabelInactive">Fitness</div>
+        </div><div class="tabItem">
+          <span class="mi" style="font-size:26px;color:#9698A1;">󰋕</span>
+          <div class="tabLabel tabLabelInactive">Biology</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="homeIndicator"></div>
+</div>
+</body>
+</html>
