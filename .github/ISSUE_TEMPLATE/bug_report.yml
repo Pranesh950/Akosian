@@ -1,0 +1,80 @@
+name: Bug report
+description: Something is broken, wrong, or missing in the app.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing. Akosian is a beta, so this is useful even if the bug seems small.
+
+        **Do not paste or screenshot health data, API keys, or personal details.** Describe the bug instead — "the sleep card showed a number I never recorded" is enough.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the Journal tab
+        2. Tap "Add" on the Weight card
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Phone model
+      placeholder: Pixel 8, iPhone 13 mini
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS version
+      placeholder: Android 15, iOS 18.2
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: App version and install source
+      description: Settings → About, or the build number shown in TestFlight.
+      placeholder: 1.0.0 (TestFlight), or 1.0.0 from the Play closed test
+    validations:
+      required: true
+  - type: dropdown
+    id: ai-mode
+    attributes:
+      label: AI mode
+      description: The bug may only appear in one of these.
+      options:
+        - No AI
+        - On-device AI
+        - My own cloud API key
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: health-connection
+    attributes:
+      label: Health data source
+      options:
+        - Apple Health
+        - Health Connect
+        - Manual entry only
+        - Not connected yet
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Anything else
+      description: Error text, screenshots with health values blacked out, or a theory about the cause.
+    validations:
+      required: false

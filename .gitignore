@@ -41,6 +41,9 @@ yarn-error.*
 CREDENTIALS.md
 d.md
 
+# private working notes that must never be published
+*.local.md
+
 # typescript
 *.tsbuildinfo
 

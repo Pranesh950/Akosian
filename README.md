@@ -11,17 +11,18 @@
 Sleep, recovery, food, habits, and an optional AI coach.<br />
 No Akosian account. No subscription. No ads. Open source.
 
+[![Join the iOS beta on TestFlight](https://img.shields.io/badge/Join_the_iOS_beta-0D96F6?style=for-the-badge&logo=apple&logoColor=white)](https://testflight.apple.com/join/HvNZzY4D)
 [![Join the Android beta](https://img.shields.io/badge/Join_the_Android_beta-3DDC84?style=for-the-badge&logo=android&logoColor=202126)](#get-akosian-on-android)
 [![Star Akosian](https://img.shields.io/github/stars/Pranesh950/Akosian?style=for-the-badge&logo=github&label=Star%20Akosian&color=E56F63)](https://github.com/Pranesh950/Akosian)
 [![License: GPL v3](https://img.shields.io/badge/Open_source-GPLv3-202126?style=for-the-badge)](LICENSE)
 
-**Android closed beta · iOS test builds via TestFlight (no public link yet)**
+**iOS beta on TestFlight (public link, one tap, no invite) · Android closed beta**
 
 <img src="assets/brand/readme-hero.svg?v=3" alt="Akosian: Your health. Your phone. Your rules. Free, open source, local-first. Real iOS screenshots of the Overview, Journal, Fitness, and Biology tabs." width="100%" />
 
 **Your health data belongs with you. Not behind a monthly paywall.**
 
-[The 30-second version](#the-30-second-version) · [Get the beta](#get-akosian-on-android) · [What you can do](#what-you-can-do) · [Under the hood](#under-the-hood) · [Privacy, plainly](#privacy-plainly) · [Build it yourself](#build-it-yourself) · [Honest limits](#a-few-honest-limits)
+[The 30-second version](#the-30-second-version) · [Get the iOS beta](#get-akosian-on-ios) · [Get the Android beta](#get-akosian-on-android) · [What you can do](#what-you-can-do) · [Under the hood](#under-the-hood) · [Privacy, plainly](#privacy-plainly) · [Build it yourself](#build-it-yourself) · [Honest limits](#a-few-honest-limits)
 
 </div>
 
@@ -32,8 +33,35 @@ No Akosian account. No subscription. No ads. Open source.
 - **What's optional.** The AI. Core tracking, scores, food lookup, and morning briefs work with no model and no API key.
 - **What it costs.** Nothing. Optional cloud AI costs whatever your provider charges for tokens, paid to them, not to us.
 - **License.** [GPLv3](LICENSE) — copyleft, so forks stay open too.
-- **Status.** Android is in Google Play closed testing; iOS test builds go through TestFlight. Beta software, mostly [one maintainer](https://github.com/Pranesh950), no release dates promised.
+- **Status.** iOS is in beta on TestFlight through a [public link](#get-akosian-on-ios) — no invite needed; Android is in Google Play closed testing. Beta software, mostly [one maintainer](https://github.com/Pranesh950), no release dates promised.
 - **What it isn't.** Not a medical device, not a subscription funnel, and not a web app — the health and AI parts are native modules. The [honest limits](#a-few-honest-limits) section says this plainly, including what's missing.
+
+## Get Akosian on iOS
+
+**One tap. No invite, no email, no approval wait.**
+
+[![Join the Akosian iOS beta on TestFlight](https://img.shields.io/badge/Join_the_iOS_beta_on_TestFlight-0D96F6?style=for-the-badge&logo=apple&logoColor=white)](https://testflight.apple.com/join/HvNZzY4D)
+
+**Open this link on your iPhone → [testflight.apple.com/join/HvNZzY4D](https://testflight.apple.com/join/HvNZzY4D)**
+
+1. **Open the link on the iPhone** you want to test with. Public links are iOS-only, so a Mac or PC browser won't get you anywhere.
+2. **Tap Accept.** If TestFlight isn't installed yet, the page sends you to Apple's free TestFlight app first — install it, then reopen the link.
+3. **Tap Install.** Akosian lands on your home screen like any other app.
+
+That's the whole process. This is a **public** TestFlight link, so nobody approves you and you don't send us anything. Reopen the same link whenever you want the newest build.
+
+> **Your iPhone only.** Opening the link doesn't sign you in, and the beta doesn't need your name, email, or health data. TestFlight itself is Apple's, and Apple's terms apply to it.
+
+<details>
+<summary><strong>Trouble installing? Start here.</strong></summary>
+
+- **Opened it on a Mac or PC?** The join page is iOS-only. Open the link on the iPhone itself.
+- **“This beta is full”?** Apple caps a public TestFlight link at **10,000 testers**. Once it's full, new testers wait for slots to free up — [email the maintainer](mailto:pranesh.shivaraj.k@gmail.com?subject=Akosian%20iOS%20beta%20access) and try again later.
+- **Build “expired”, or nothing to install?** TestFlight builds stay available for **90 days** after upload. The link itself doesn't change, so reopen it and install the current build.
+- **“Requires a newer version of iOS”?** Your iOS version is below the app's minimum. Check **TestFlight → Akosian → App Information** for the requirement.
+- **Still stuck?** [Open an issue](https://github.com/Pranesh950/Akosian/issues) with your iPhone model, iOS version, and the exact error text. Keep health values, screenshots of your data, and personal details out of it.
+
+</details>
 
 ## Get Akosian on Android
 
@@ -59,7 +87,7 @@ No Akosian account. No subscription. No ads. Open source.
 
 **Want to help get Akosian out of closed testing?** Join, opt in, and try it in your normal routine. Google Play's production-access process can require at least **12 testers opted in continuously for 14 days**; eligibility and approval are determined by Google. Honest bug reports and real-world feedback matter more than perfect reviews.
 
-**On iPhone?** iOS test builds are distributed through TestFlight and there is **no public link yet**. Watch this repository's [releases](https://github.com/Pranesh950/Akosian/releases) for availability. A GitHub star is appreciated, but it doesn't subscribe you to release notifications.
+**On iPhone?** You don't need any of that. The iOS beta is on TestFlight with a **public link — no invite, no group, no approval**: [**Join the iOS beta →**](https://testflight.apple.com/join/HvNZzY4D). You can't help with the Android tester count from an iPhone, but iOS bug reports and feedback are just as useful. A GitHub star is appreciated, but it doesn't subscribe you to release notifications.
 
 ## Your health. Your phone. Your rules.
 
@@ -140,25 +168,25 @@ Things that took longer than they should have, in case you're reading the source
 - **Cloud AI is optional.** When enabled, your chat and relevant context go directly to your selected provider. Identifier scrubbing is best-effort—not a guarantee of anonymity, and not removal of all sensitive health information.
 - API keys are kept in **OS secure storage**, not an Akosian server. Your provider's billing and retention policies still apply.
 
-Read the [full privacy policy](PRIVACY_POLICY.md) and inspect the [source](src/services). Keep private health information out of public bug reports and the tester group.
+Read the [full privacy policy](PRIVACY_POLICY.md) and inspect the [source](src/services). Found a security problem instead? The [security policy](SECURITY.md) has the disclosure channel and the list of known gaps. Keep private health information out of public bug reports and the tester group.
 
 ## Help make private health the default
 
 You don't need to code to help.
 
-1. **Try the [Android beta](#get-akosian-on-android).** Tell us what broke, what confused you, and what actually helped. Real-world use is the only thing that finds the bugs that matter.
+1. **Try a beta.** [iOS: one tap on TestFlight](#get-akosian-on-ios), or [Android: three links](#get-akosian-on-android). Tell us what broke, what confused you, and what actually helped. Real-world use is the only thing that finds the bugs that matter.
 2. **[Star the repository](https://github.com/Pranesh950/Akosian).** It's how other people find an open-source alternative to a subscription.
 3. **Send it to one friend** who cares about privacy, tracks their sleep, or is tired of subscription-only health tools.
 4. **Read the code and tell us what's wrong.** An issue that says "this doesn't handle X" is worth more than a compliment.
 
 **A message you can copy:**
 
-> Health should be private and free. Akosian is an open-source health app for sleep, recovery, food, and habits—with optional on-device AI, no Akosian account, and no subscription. Android beta signup: https://github.com/Pranesh950/Akosian#get-akosian-on-android
+> Health should be private and free. Akosian is an open-source health app for sleep, recovery, food, and habits—with optional on-device AI, no Akosian account, and no subscription. iPhone beta (one tap): https://testflight.apple.com/join/HvNZzY4D · Android beta: https://github.com/Pranesh950/Akosian#get-akosian-on-android
 
-[![Share on X](https://img.shields.io/badge/Share_on_X-202126?style=for-the-badge&logo=x&logoColor=white)](https://twitter.com/intent/tweet?text=Health%20should%20be%20private%20and%20free.%20Akosian%20is%20an%20open-source%20health%20app%20with%20no%20subscription%20and%20optional%20on-device%20AI.%20Try%20the%20Android%20beta%3A&url=https%3A%2F%2Fgithub.com%2FPranesh950%2FAkosian%23get-akosian-on-android)
-[![Share on WhatsApp](https://img.shields.io/badge/Send_to_a_friend-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://wa.me/?text=Health%20should%20be%20private%20and%20free.%20Try%20Akosian%2C%20an%20open-source%20health%20app%20with%20no%20subscription%20and%20optional%20on-device%20AI%3A%20https%3A%2F%2Fgithub.com%2FPranesh950%2FAkosian%23get-akosian-on-android)
+[![Share on X](https://img.shields.io/badge/Share_on_X-202126?style=for-the-badge&logo=x&logoColor=white)](https://twitter.com/intent/tweet?text=Health%20should%20be%20private%20and%20free.%20Akosian%20is%20an%20open-source%20health%20app%20with%20no%20subscription%20and%20optional%20on-device%20AI.%20iPhone%20beta%2C%20one%20tap%3A&url=https%3A%2F%2Ftestflight.apple.com%2Fjoin%2FHvNZzY4D)
+[![Share on WhatsApp](https://img.shields.io/badge/Send_to_a_friend-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://wa.me/?text=Health%20should%20be%20private%20and%20free.%20Try%20Akosian%2C%20an%20open-source%20health%20app%20with%20no%20subscription%20and%20optional%20on-device%20AI.%20iPhone%20beta%20(one%20tap)%3A%20https%3A%2F%2Ftestflight.apple.com%2Fjoin%2FHvNZzY4D%20%7C%20Android%20beta%3A%20https%3A%2F%2Fgithub.com%2FPranesh950%2FAkosian%23get-akosian-on-android)
 
-**Please share the signup section, not just the Play Store listing.** Closed-beta users need group membership and the tester opt-in before they can install.
+**Please share the signup sections, not just the Play Store listing.** iPhone testers need the TestFlight link; Android closed-beta users need group membership and the tester opt-in before they can install.
 
 ## Build it yourself
 
@@ -180,9 +208,16 @@ npx expo run:ios
 
 Already installed a matching development build? Start Metro with `npx expo start --dev-client`.
 
-The 112 MB food database is stored with Git LFS. If you cloned without LFS, regenerate it from source instead:
+The 112 MB food database is stored with Git LFS, and **GitHub's free LFS bandwidth is small**. If this repository gets a lot of traffic in one month, the quota runs out and your clone gets a 134-byte *pointer file* where the database should be — the clone still succeeds, the app just has no food in it. Regenerate it from source instead:
 
 ```bash
+npm run build:opennutrition
+```
+
+That fetches the OpenNutrition 2025.1 release (a 63 MB zip), checks its published SHA-256, and builds the same SQLite file locally — no Git LFS, no quota. If you don't have `git-lfs` set up at all, skip the download up front:
+
+```bash
+GIT_LFS_SKIP_SMUDGE=1 git clone https://github.com/Pranesh950/Akosian.git
 npm run build:opennutrition
 ```
 
@@ -238,7 +273,7 @@ Have a different priority? [Open an issue](https://github.com/Pranesh950/Akosian
 
 **If that sounds like the future you want, help build it.**
 
-[Join the Android beta](#get-akosian-on-android) · [Star Akosian](https://github.com/Pranesh950/Akosian) · [Share with a friend](#help-make-private-health-the-default)
+[Get the iOS beta](#get-akosian-on-ios) · [Get the Android beta](#get-akosian-on-android) · [Star Akosian](https://github.com/Pranesh950/Akosian) · [Share with a friend](#help-make-private-health-the-default)
 
 <sub>Built by Pranesh Shivaraj. For people, not data brokers.</sub>
 
