@@ -4,9 +4,7 @@
 
 # Akosian
 
-### Health should be private. And free.
-
-**Your body is not a business model.**
+### Private, local-first, and free.
 
 Sleep, recovery, food, habits, and an optional AI coach.<br />
 No Akosian account. No subscription. No ads. Open source.
@@ -20,7 +18,7 @@ No Akosian account. No subscription. No ads. Open source.
 
 <img src="assets/brand/readme-hero.svg?v=3" alt="Akosian: Your health. Your phone. Your rules. Free, open source, local-first. Real iOS screenshots of the Overview, Journal, Fitness, and Biology tabs." width="100%" />
 
-**Your health data belongs with you. Not behind a monthly paywall.**
+**Your health data stays on your device.**
 
 [The 30-second version](#the-30-second-version) · [Get the iOS beta](#get-akosian-on-ios) · [Get the Android beta](#get-akosian-on-android) · [What you can do](#what-you-can-do) · [Under the hood](#under-the-hood) · [Privacy, plainly](#privacy-plainly) · [Build it yourself](#build-it-yourself) · [Honest limits](#a-few-honest-limits)
 
@@ -34,7 +32,7 @@ No Akosian account. No subscription. No ads. Open source.
 - **What it costs.** Nothing. Optional cloud AI costs whatever your provider charges for tokens, paid to them, not to us.
 - **License.** [GPLv3](LICENSE) — copyleft, so forks stay open too.
 - **Status.** iOS is in beta on TestFlight through a [public link](#get-akosian-on-ios) — no invite needed; Android is in Google Play closed testing. Beta software, mostly [one maintainer](https://github.com/Pranesh950), no release dates promised.
-- **What it isn't.** Not a medical device, not a subscription funnel, and not a web app — the health and AI parts are native modules. The [honest limits](#a-few-honest-limits) section says this plainly, including what's missing.
+- **What it isn't.** Not a medical device, not a subscription service, and not a web app — the health and AI parts are native modules. The [honest limits](#a-few-honest-limits) section says this plainly, including what's missing.
 
 ## Get Akosian on iOS
 
@@ -91,19 +89,19 @@ That's the whole process. This is a **public** TestFlight link, so nobody approv
 
 ## Your health. Your phone. Your rules.
 
-You already generated the data. You should be able to understand it without another subscription.
+Your health data is already on your phone. Akosian helps you understand it without an account or a subscription.
 
 Akosian brings your health signals, meals, and everyday habits together in a **free, local-first wellness app**. Connect Apple Health or Android Health Connect, or start with manual tracking. Choose on-device AI, your own cloud API key, or no AI at all.
 
-| What you shouldn't have to trade | The Akosian approach |
+| Design choice | The Akosian approach |
 | :--- | :--- |
-| **Money just to access core features** | No Akosian subscription or feature paywall. Optional cloud AI may cost money through your provider. |
-| **Your privacy for a dashboard** | Core records and calculations stay on your device. Cloud AI is an explicit choice, not a requirement. |
-| **An email address to start tracking** | No Akosian signup. Open the app and get started. |
-| **A new wearable to participate** | Use compatible data from the wearable you own, or log manually. |
-| **Blind trust in a black box** | GPLv3 source code you can inspect, modify, and build yourself. |
+| **Core features** | No Akosian subscription or feature paywall. Optional cloud AI may cost money through your provider. |
+| **Privacy** | Core records and calculations stay on your device. Cloud AI is an explicit choice, not a requirement. |
+| **Getting started** | No Akosian signup. Open the app and start tracking. |
+| **Hardware** | Use compatible data from a wearable you already own, or log manually. |
+| **Transparency** | GPLv3 source code you can inspect, modify, and build yourself. |
 
-**No ads. No selling your health data. No “start your free trial” countdown.**
+**No ads, no data selling, and no trial countdowns.**
 
 ## What you can do
 
@@ -159,7 +157,7 @@ Things that took longer than they should have, in case you're reading the source
 
 ## Privacy, plainly
 
-**Private by default is a product decision, not a badge.**
+**Private by default.**
 
 - **No Akosian account, backend, ads, or analytics SDKs.** There is no telemetry library in `package.json`.
 - Core health records, journals, meals, and settings use **on-device storage**.
@@ -175,16 +173,16 @@ Read the [full privacy policy](PRIVACY_POLICY.md) and inspect the [source](src/s
 You don't need to code to help.
 
 1. **Try a beta.** [iOS: one tap on TestFlight](#get-akosian-on-ios), or [Android: three links](#get-akosian-on-android). Tell us what broke, what confused you, and what actually helped. Real-world use is the only thing that finds the bugs that matter.
-2. **[Star the repository](https://github.com/Pranesh950/Akosian).** It's how other people find an open-source alternative to a subscription.
+2. **[Star the repository](https://github.com/Pranesh950/Akosian).** It helps other people find the project.
 3. **Send it to one friend** who cares about privacy, tracks their sleep, or is tired of subscription-only health tools.
 4. **Read the code and tell us what's wrong.** An issue that says "this doesn't handle X" is worth more than a compliment.
 
 **A message you can copy:**
 
-> Health should be private and free. Akosian is an open-source health app for sleep, recovery, food, and habits—with optional on-device AI, no Akosian account, and no subscription. iPhone beta (one tap): https://testflight.apple.com/join/HvNZzY4D · Android beta: https://github.com/Pranesh950/Akosian#get-akosian-on-android
+> Akosian is a free, open-source health app for sleep, recovery, food, and habits—with optional on-device AI, no account, and no subscription. iPhone beta (one tap): https://testflight.apple.com/join/HvNZzY4D · Android beta: https://github.com/Pranesh950/Akosian#get-akosian-on-android
 
-[![Share on X](https://img.shields.io/badge/Share_on_X-202126?style=for-the-badge&logo=x&logoColor=white)](https://twitter.com/intent/tweet?text=Health%20should%20be%20private%20and%20free.%20Akosian%20is%20an%20open-source%20health%20app%20with%20no%20subscription%20and%20optional%20on-device%20AI.%20iPhone%20beta%2C%20one%20tap%3A&url=https%3A%2F%2Ftestflight.apple.com%2Fjoin%2FHvNZzY4D)
-[![Share on WhatsApp](https://img.shields.io/badge/Send_to_a_friend-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://wa.me/?text=Health%20should%20be%20private%20and%20free.%20Try%20Akosian%2C%20an%20open-source%20health%20app%20with%20no%20subscription%20and%20optional%20on-device%20AI.%20iPhone%20beta%20(one%20tap)%3A%20https%3A%2F%2Ftestflight.apple.com%2Fjoin%2FHvNZzY4D%20%7C%20Android%20beta%3A%20https%3A%2F%2Fgithub.com%2FPranesh950%2FAkosian%23get-akosian-on-android)
+[![Share on X](https://img.shields.io/badge/Share_on_X-202126?style=for-the-badge&logo=x&logoColor=white)](https://twitter.com/intent/tweet?text=Akosian%20is%20a%20free%2C%20open-source%20health%20app%20with%20no%20account%2C%20no%20subscription%2C%20and%20optional%20on-device%20AI.%20iPhone%20beta%2C%20one%20tap%3A&url=https%3A%2F%2Ftestflight.apple.com%2Fjoin%2FHvNZzY4D)
+[![Share on WhatsApp](https://img.shields.io/badge/Send_to_a_friend-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://wa.me/?text=Akosian%20is%20a%20free%2C%20open-source%20health%20app%20with%20no%20account%2C%20no%20subscription%2C%20and%20optional%20on-device%20AI.%20iPhone%20beta%20(one%20tap)%3A%20https%3A%2F%2Ftestflight.apple.com%2Fjoin%2FHvNZzY4D%20%7C%20Android%20beta%3A%20https%3A%2F%2Fgithub.com%2FPranesh950%2FAkosian%23get-akosian-on-android)
 
 **Please share the signup sections, not just the Play Store listing.** iPhone testers need the TestFlight link; Android closed-beta users need group membership and the tester opt-in before they can install.
 
@@ -258,7 +256,7 @@ Have a different priority? [Open an issue](https://github.com/Pranesh950/Akosian
 - Wearable data quality and sync support vary. Missing inputs mean missing or less confident insights.
 - The offline food database and barcode coverage aren't exhaustive. Check portions and nutrition estimates.
 - On-device AI availability, speed, and memory requirements vary by phone. Core tracking works without it.
-- **Sync is the weakest link, and it's usually not our code.** Apple Health and Health Connect only see what your wearable's companion app writes, so most "missing data" reports are really a sync problem in that app. Bluetooth on, then sync there first.
+- **Sync is the weakest link.** Apple Health and Health Connect only see what your wearable's companion app writes, so most "missing data" reports come from a sync problem in that app. Bluetooth on, then sync there first.
 - The banner above shows **real iOS screenshots**, captured on one tester's device — the health values in them are personal data, not defaults. This is beta software; expect rough edges.
 
 ## License
@@ -271,10 +269,10 @@ Have a different priority? [Open an issue](https://github.com/Pranesh950/Akosian
 
 ### Better health tools. Fewer strings attached.
 
-**If that sounds like the future you want, help build it.**
+**Want to help? Start here.**
 
 [Get the iOS beta](#get-akosian-on-ios) · [Get the Android beta](#get-akosian-on-android) · [Star Akosian](https://github.com/Pranesh950/Akosian) · [Share with a friend](#help-make-private-health-the-default)
 
-<sub>Built by Pranesh Shivaraj. For people, not data brokers.</sub>
+<sub>Built by Pranesh Shivaraj.</sub>
 
 </div>
