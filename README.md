@@ -19,7 +19,7 @@ Sleep, recovery, strain, food, and habits for iOS and Android. No account, no ba
 
 **Install on iPhone in one tap · Android in three · or build it yourself from source.**
 
-[Install](#install) · [What it does](#what-you-can-do) · [Run the code](#build-it-yourself) · [How it works](#under-the-hood) · [Privacy](#privacy-plainly) · [Honest limits](#a-few-honest-limits)
+[Install](#install) · [What it does](#what-you-can-do) · [Compare](#how-it-compares) · [Run the code](#build-it-yourself) · [How it works](#under-the-hood) · [Privacy](#privacy-plainly) · [Honest limits](#a-few-honest-limits)
 
 </div>
 
@@ -94,6 +94,25 @@ That's the whole process. Reopen the same link whenever you want the newest buil
 Akosian reads **Apple Health on iOS** and **Health Connect on Android** — it doesn't talk to wearables directly. Apple Watch, Galaxy Watch, Pixel Watch, Garmin, Fitbit, Oura, and WHOOP can all feed it wherever their companion app syncs into your platform's health store. Support varies by vendor, region, and metric; some setups need a bridge.
 
 No wearable? Manual meals and habits work fine. Health-based scores still need their underlying data.
+
+## How it compares
+
+Akosian isn't trying to out-polish a funded team. It's trying to remove the parts you can't opt out of elsewhere: the account, the subscription, and the server.
+
+| | **Akosian** | **Bevel** | **WHOOP** |
+| :--- | :--- | :--- | :--- |
+| **Price for the whole app** | **$0.** No tier, no paywall, no hardware. Optional cloud AI is billed by your provider, at cost. | Free core; **$99.99/yr** for the AI coach, health records, biological age, and training plans. | **$199–$359/yr, every year**, with no free tier. The band is bundled into the membership, not included once. |
+| **Account** | **None.** Open the app and start tracking. | Required. | Required. |
+| **Where your data is processed** | **On your phone.** Cloud AI stays off unless you turn it on with your own key. | Bevel's account and cloud. | WHOOP's cloud. |
+| **AI** | On-device (your OS model or a local GGUF) or your own provider key — and optional entirely. | Cloud-only Bevel Intelligence, metered on Pro. | Cloud-only WHOOP Coach. |
+| **Local-first** | **Yes.** Scores, food search, journal, and on-device AI work with no network. | Account-centric; the AI needs the cloud. | Cloud sync is the model. |
+| **Hardware** | **Any wearable** that writes to Apple Health or Health Connect — or none at all. | Apple Watch-centric, **iOS only**. | WHOOP band only. |
+| **Platforms** | iOS **and** Android. | iOS only. | iOS and Android. |
+| **Source** | **GPLv3.** Audit it, fork it, build it, keep it. | Closed. | Closed. |
+
+**The short version:** Bevel charges for the AI coach and WHOOP charges for the band and the app; Akosian charges for nothing and hands you the source. The trade is polish and headcount — a funded team ships faster than [one maintainer](https://github.com/Pranesh950), which is what the [honest limits](#a-few-honest-limits) are for.
+
+<sub>Competitor plans and prices read from their public pricing pages in October 2026 — check them before relying on a number. This compares terms, not build quality or clinical claims.</sub>
 
 ## Build it yourself
 
@@ -198,7 +217,7 @@ The [full privacy policy](PRIVACY_POLICY.md) has the long version. Found a secur
 
 ## A few honest limits
 
-- **Wellness app, not a medical device.** Scores and AI output are informational, can be wrong, and are not medical advice.
+- **Wellness app, not a medical device.** Scores and AI output are informational, can be wrong, and are not medical advice. Bevel and WHOOP are more polished products with teams behind them; the [comparison](#how-it-compares) is about price, ownership, and auditability, not finish.
 - **No web version, and not easily one.** HealthKit, Health Connect, and llama.cpp are native modules, so there's no browser demo. Installing is how you see it.
 - **No automated tests yet.** Scoring and model policy are deliberately pure functions so they *can* be tested without a phone; today verification is manual. That's a real risk in beta.
 - **Phone-only.** Tablet support is off and layouts are portrait, so an iPad runs the phone layout.
