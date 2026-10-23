@@ -27,6 +27,10 @@ Sleep, recovery, strain, food, and habits for iOS and Android. No account, no ba
 
 Two betas, both free. Pick your phone; troubleshooting for both is at the end of the section.
 
+### Try the web demo
+
+**[Try Akosian in your browser →](https://pranesh950.github.io/Myrri-Health/)** — walk through onboarding, the dashboard, and the coach with fake data. Health sync, camera barcode scanning, and local AI only work in the installed app.
+
 ### Get Akosian on iOS
 
 **One tap. No invite, no email, no approval wait.**
@@ -218,7 +222,7 @@ The [full privacy policy](PRIVACY_POLICY.md) has the long version. Found a secur
 ## A few honest limits
 
 - **Wellness app, not a medical device.** Scores and AI output are informational, can be wrong, and are not medical advice. Bevel and WHOOP are more polished products with teams behind them; the [comparison](#how-it-compares) is about price, ownership, and auditability, not finish.
-- **No web version, and not easily one.** HealthKit, Health Connect, and llama.cpp are native modules, so there's no browser demo. Installing is how you see it.
+- **The web demo is a re-creation, not the app.** HealthKit, Health Connect, and llama.cpp are native modules, so the [browser demo](https://pranesh950.github.io/Myrri-Health/) uses fake data and can't scan barcodes or run local AI. Installing is how you see the real thing.
 - **No automated tests yet.** Scoring and model policy are deliberately pure functions so they *can* be tested without a phone; today verification is manual. That's a real risk in beta.
 - **Phone-only.** Tablet support is off and layouts are portrait, so an iPad runs the phone layout.
 - **Not small.** 112 MB of food database is bundled, and a local model adds 379 MB – 4.9 GB.
