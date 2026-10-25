@@ -18,6 +18,7 @@ import {
   Platform,
   ActivityIndicator,
   BackHandler,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
@@ -45,6 +46,7 @@ import {
   getStatus,
   extractMessages,
   getQwenDownloadProgress,
+  getModelDownloadProgress,
   getLlamaModelId,
   getAvailableLlamaModels,
   switchLlamaModel,
@@ -155,6 +157,7 @@ export default function FoodChatScreen() {
   const [pickerRows, setPickerRows] = useState<ModelPickerRow[]>([]);
   const [recommendedModelId, setRecommendedModelId] = useState<string | null>(null);
   const [speedTestId, setSpeedTestId] = useState<string | null>(null);
+  const [switchProgress, setSwitchProgress] = useState(-1);
 
   useEffect(() => {
     (async () => {
@@ -439,17 +442,44 @@ export default function FoodChatScreen() {
 
   const handleSwitchModel = async (modelId: string) => {
     if (modelId === currentModelId) return;
+    if (loading) {
+      Alert.alert("Reply in progress", "Stop the current reply before switching models.");
+      return;
+    }
+    const row = pickerRows.find((r) => r.model.id === modelId);
+    if (row && !row.fits) {
+      Alert.alert(
+        "Not enough memory",
+        "This model is larger than this device can safely load. Pick a smaller one."
+      );
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setSwitchProgress(getModelDownloadProgress(modelId));
+    }, 400);
+    setSwitchProgress(0);
     try {
       setModelDownloadStates((prev) => ({ ...prev, [modelId]: "downloading" }));
       await switchLlamaModel(modelId);
       setCurrentModelId(modelId);
       setModelDownloadStates((prev) => ({ ...prev, [modelId]: "ready" }));
+      // The cached agent holds the previous model; drop it so the next turn
+      // actually runs on the model the user just picked.
+      (sessionRef.current as AgentChatSession | null)?.refreshModel?.();
       // A deliberate pick must survive the device recommender, otherwise the
       // app would quietly move the user off the model they chose.
       await markManualModelChoice();
     } catch (e) {
       console.warn("[FoodChat] Model switch failed:", e);
       setModelDownloadStates((prev) => ({ ...prev, [modelId]: "not_downloaded" }));
+      Alert.alert(
+        "Couldn't switch models",
+        e instanceof Error ? e.message : "This model could not be loaded on this device."
+      );
+    } finally {
+      clearInterval(timer);
+      setSwitchProgress(-1);
     }
   };
 
@@ -684,8 +714,16 @@ export default function FoodChatScreen() {
               const row = pickerRows.find((r) => r.model.id === m.id);
               const speed = row?.speed ?? null;
               const isRecommended = m.id === recommendedModelId;
+              const tooLarge = row != null && !row.fits;
+              const busy = dlState === "downloading";
               return (
-                <TouchableOpacity key={m.id} style={[styles.modelRow, isCurrent && styles.modelRowActive]} onPress={() => handleSwitchModel(m.id)} disabled={dlState === "downloading"} activeOpacity={0.7}>
+                <TouchableOpacity
+                  key={m.id}
+                  style={[styles.modelRow, isCurrent && styles.modelRowActive, tooLarge && styles.modelRowDisabled]}
+                  onPress={() => handleSwitchModel(m.id)}
+                  disabled={busy || loading || tooLarge}
+                  activeOpacity={0.7}
+                >
                   <View style={styles.modelRowInfo}>
                     <View style={styles.modelRowTitleRow}>
                       <Text style={styles.modelRowName}>{m.name}</Text>
@@ -697,8 +735,15 @@ export default function FoodChatScreen() {
                     </View>
                     <Text style={styles.modelRowSize}>
                       {m.size}
-                      {row && !row.fits ? " · may exceed this device's memory" : ""}
+                      {tooLarge ? " · too large for this device" : ""}
                     </Text>
+                    {busy ? (
+                      <Text style={styles.modelRowSize}>
+                        {switchProgress > 0 && switchProgress < 1
+                          ? `Downloading… ${Math.round(switchProgress * 100)}%`
+                          : "Preparing model…"}
+                      </Text>
+                    ) : null}
                     {speed ? (
                       <Text
                         style={[
@@ -712,7 +757,7 @@ export default function FoodChatScreen() {
                     {!speed && row?.fits && dlState === "ready" && !isCurrent ? (
                       <TouchableOpacity
                         onPress={() => handleTestSpeed(m.id)}
-                        disabled={!!speedTestId}
+                        disabled={!!speedTestId || busy || loading}
                         activeOpacity={0.7}
                         style={styles.modelTestBtn}
                       >
@@ -724,7 +769,7 @@ export default function FoodChatScreen() {
                       </TouchableOpacity>
                     ) : null}
                   </View>
-                  {dlState === "downloading" ? (
+                  {busy ? (
                     <ActivityIndicator size="small" color={theme.colors.primary} />
                   ) : isCurrent ? (
                     <View style={styles.modelActiveBadge}><MaterialCommunityIcons name="check-circle" size={16} color={theme.colors.success} /></View>
@@ -905,6 +950,7 @@ const styles = StyleSheet.create({
   modelSheetSub: { ...theme.typography.caption, color: theme.colors.muted, marginBottom: theme.spacing.lg, lineHeight: 18 },
   modelRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: theme.spacing.md, paddingHorizontal: theme.spacing.md, borderRadius: theme.radii.md, backgroundColor: theme.colors.bg, marginBottom: theme.spacing.sm },
   modelRowActive: { borderWidth: 1.5, borderColor: theme.colors.primary, backgroundColor: `${theme.colors.primary}08` },
+  modelRowDisabled: { opacity: 0.45 },
   modelRowInfo: { flex: 1 },
   modelRowName: { ...theme.typography.bodyMd, color: theme.colors.ink, fontFamily: "Nunito_600SemiBold", fontWeight: "600" },
   modelRowTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },

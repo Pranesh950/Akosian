@@ -187,6 +187,11 @@ export function getQwenDownloadProgress(): number {
   return getDownloadProgress();
 }
 
+/** Download progress (0–1, or -1 when idle) for a specific model rung. */
+export function getModelDownloadProgress(modelId: string): number {
+  return getDownloadProgress(modelId);
+}
+
 export function getLlamaModelId(): string | null {
   return getCurrentModelId();
 }
@@ -198,12 +203,13 @@ export function getAvailableLlamaModels(): LlamaModel[] {
 export async function switchLlamaModel(modelId: string): Promise<void> {
   const prev = getCurrentModelId();
   if (prev === modelId) return;
-  if (activeProvider?.provider === llamaProvider) {
-    await activeProvider.provider.switchModel?.(modelId);
-    const model = getAvailableModels().find((m) => m.id === modelId);
-    activeProvider.info.name = model ? `Llama (${model.name})` : "Llama";
-    activeProvider.info.status = "ready";
+  if (activeProvider?.provider !== llamaProvider) {
+    throw new Error("Local model switching is only available when the on-device model is active.");
   }
+  await activeProvider.provider.switchModel?.(modelId);
+  const model = getAvailableModels().find((m) => m.id === modelId);
+  activeProvider.info.name = model ? `Llama (${model.name})` : "Llama";
+  activeProvider.info.status = "ready";
 }
 
 export async function checkModelDownloaded(modelId: string): Promise<boolean> {

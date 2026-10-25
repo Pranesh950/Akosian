@@ -141,9 +141,15 @@ let generationInFlight = false;
 
 // Per-model download progress (0–1 or -1 for not started)
 const downloadProgressMap: Record<string, number> = {};
+/** The rung currently being fetched, so progress can be read before it loads. */
+let downloadingModelId: string | null = null;
 
 export function getDownloadProgress(modelId?: string): number {
-  const id = modelId ?? currentModelId ?? AVAILABLE_MODELS[0].id;
+  const id =
+    modelId ??
+    downloadingModelId ??
+    currentModelId ??
+    AVAILABLE_MODELS[0].id;
   return downloadProgressMap[id] ?? 0;
 }
 
@@ -163,6 +169,16 @@ export async function getSelectedModelId(): Promise<string> {
     }
   } catch {}
   return AVAILABLE_MODELS[0].id;
+}
+
+/** True once the user (or a recommendation) has actually written a selection. */
+export async function hasStoredModelSelection(): Promise<boolean> {
+  try {
+    const stored = await AsyncStorage.getItem(SELECTED_MODEL_KEY);
+    return !!stored && AVAILABLE_MODELS.some((m) => m.id === stored);
+  } catch {
+    return false;
+  }
 }
 
 export async function setSelectedModelId(id: string): Promise<void> {
@@ -195,6 +211,7 @@ async function ensureModelDownloaded(modelId: string): Promise<string> {
 
   await FileSystem.makeDirectoryAsync(MODEL_DIR, { intermediates: true });
 
+  downloadingModelId = modelId;
   downloadProgressMap[modelId] = 0;
 
   const download = FileSystem.createDownloadResumable(
@@ -277,6 +294,12 @@ export async function benchmarkModel(modelId: string): Promise<ModelSpeed | null
   }
 
   const model = getModelById(modelId);
+  // Never hold two sets of weights at once: measuring a different rung while
+  // the chat model is loaded is the easiest way to run a phone out of memory.
+  // Release the live model first; the next chat re-initialises it lazily.
+  if (context && currentModelId !== modelId) {
+    await disposeContext();
+  }
   const reusingLiveContext = currentModelId === modelId && !!context;
   let ctx: any = reusingLiveContext ? context : null;
 
@@ -357,6 +380,9 @@ export const llamaProvider: LLMProvider = {
 
   async switchModel(modelId: string): Promise<void> {
     if (currentModelId === modelId && context) return;
+    if (generationInFlight) {
+      throw new Error("Wait for the current reply to finish before switching models.");
+    }
 
     await disposeContext();
 
@@ -366,7 +392,7 @@ export const llamaProvider: LLMProvider = {
     context = await llama.initLlama({
       model: modelPath,
       n_ctx: 4096,
-      use_mlock: true,
+      use_mlock: false,
       n_gpu_layers: Platform.OS === "ios" ? 99 : 0,
     });
 

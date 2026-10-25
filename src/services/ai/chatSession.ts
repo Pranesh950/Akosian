@@ -61,6 +61,8 @@ export interface AgentChatSession {
   resetChat(): void;
   cancelGeneration(): void;
   getTurns(): AgentChatTurn[];
+  /** Drop the cached agent so the next turn picks up a newly selected model. */
+  refreshModel(): void;
   /** Mark a surfaced pending approval as resolved so it doesn't re-render later. */
   resolveApproval(mealId: string, note: string): void;
 }
@@ -208,6 +210,9 @@ export function createAgentChatSession(options: AgentChatSessionOptions): AgentC
     },
     cancelGeneration: () => abortRef?.abort(),
     getTurns: () => turns.slice(),
+    refreshModel: () => {
+      agent = null;
+    },
     resolveApproval: (mealId, note) => {
       for (const t of turns) {
         if (t.pendingApproval && t.pendingApproval.input?.mealId === mealId) {

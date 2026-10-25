@@ -44,6 +44,7 @@ import {
   AVAILABLE_MODELS,
   benchmarkModel,
   getSelectedModelId,
+  hasStoredModelSelection,
   isModelDownloaded,
   setSelectedModelId,
   type LlamaModel,
@@ -304,7 +305,9 @@ export interface ApplyResult {
  * unambiguous:
  *
  * - never over a manual choice the user made themselves;
- * - never to trigger a surprise multi-GB download;
+ * - on a first run (no stored selection), start on the recommended rung even
+ *   when that means downloading it;
+ * - after a selection exists, never trigger a surprise multi-GB download;
  * - always when the current selection cannot physically run here, because
  *   leaving that in place would fail on first use.
  *
@@ -327,8 +330,14 @@ export async function applyRecommendationAutomatically(
   const currentModel = AVAILABLE_MODELS.find((m) => m.id === currentId) ?? null;
   const currentUnusable = currentModel != null && !modelFitsDevice(currentModel, profile);
   const recommendedDownloaded = await isModelDownloaded(rec.modelId);
+  // A first run has no stored pick at all. Existing installs that never moved
+  // off the safe-default smallest rung are treated the same way, so a phone
+  // that has always been on 0.5B gets the model its hardware actually supports
+  // instead of staying there forever.
+  const firstRun =
+    !(await hasStoredModelSelection()) || currentId === AVAILABLE_MODELS[0].id;
 
-  if (!currentUnusable && !recommendedDownloaded) return null;
+  if (!currentUnusable && !recommendedDownloaded && !firstRun) return null;
 
   await setSelectedModelId(rec.modelId);
   // An automatic correction must not latch as if the user chose it.
