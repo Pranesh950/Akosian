@@ -1,9 +1,9 @@
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
-# dependencies
-# freebuff creds file (used by CREDENTIALS.md pattern locally)
+# local tooling credentials
 .freebuff/
 
+# dependencies
 node_modules/
 
 # Expo

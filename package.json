@@ -56,7 +56,6 @@
     "@types/react": "~19.1.17",
     "better-sqlite3": "^13.0.2",
     "csv-parse": "^7.0.2",
-    "freebuff": "^0.0.127",
     "patch-package": "^8.0.1",
     "typescript": "~5.9.2",
     "unzipper": "^0.12.5"
