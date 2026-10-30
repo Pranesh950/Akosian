@@ -3,325 +3,36 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Try Akosian — a private, local-first health tracker</title>
-    <meta
-      name="description"
-      content="Try Akosian in your browser. Sleep, recovery, strain, food, habits, and an optional AI coach — no account, no subscription, no server. Then install the real app on iPhone or Android."
-    />
-    <meta name="theme-color" content="#F7F7F9" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css"
-    />
+    <title>Akosian</title>
+    <meta name="description" content="Free, open-source health tracking. Get Akosian for iPhone or Android, or find the source on GitHub." />
+    <meta name="theme-color" content="#fafaf8" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="site-header">
-      <div class="header-left">
-        <a class="brand" href="#top" aria-label="Akosian home">
-          <span class="brand-mark"><i class="mdi mdi-heart-pulse" aria-hidden="true"></i></span>
-          <span>Akosian</span>
-        </a>
-        <a
-          class="header-repo"
-          href="https://github.com/Pranesh950/Myrri-Health"
-          target="_blank"
-          rel="noopener"
-          aria-label="Star Akosian on GitHub"
-        >
-          <i class="mdi mdi-github" aria-hidden="true"></i>
-          <span>Star on GitHub</span>
-          <i class="mdi mdi-star" aria-hidden="true"></i>
-        </a>
-      </div>
-      <nav class="site-nav" aria-label="Main navigation">
-        <a href="#demo">Demo</a>
-        <a href="#what">What it does</a>
-        <a href="#privacy">Privacy</a>
-        <a class="nav-button" href="https://testflight.apple.com/join/HvNZzY4D" target="_blank" rel="noopener">
-          <i class="mdi mdi-apple" aria-hidden="true"></i> iOS beta
-        </a>
-      </nav>
-    </header>
+    <main>
+      <h1>Akosian</h1>
+      <p class="intro">Free, open-source health tracking.</p>
 
-    <main id="top">
-      <section class="hero" id="demo">
-        <div class="hero-heading">
-          <span class="eyebrow">Akosian / Browser demo</span>
-          <h1>A closer look at<br />your everyday health.</h1>
-          <p class="hero-trust">A free, open-source app for iPhone and Android.</p>
-          <p class="hero-lede">
-            Try the app below with sample data. Browse sleep, food, and habits,
-            or go through setup to see how it works. Nothing to install.
-          </p>
-        </div>
-
-        <div class="hero-grid">
-          <div class="phone-column">
-            <div class="phone-shell" aria-label="Akosian app web demo">
-              <div class="phone-frame">
-                <div class="phone-island" aria-hidden="true"></div>
-                <div class="phone-screen">
-                  <div id="app" class="app-root"></div>
-                  <div id="app-modal" class="app-modal hidden" aria-live="polite"></div>
-                </div>
-              </div>
-            </div>
-            <div class="phone-actions">
-              <button type="button" class="ghost-button" id="restart-demo">
-                <i class="mdi mdi-restart" aria-hidden="true"></i> Restart demo
-              </button>
-              <span class="phone-note">Interactive demo · fake data</span>
-            </div>
-          </div>
-
-          <aside class="install-panel" aria-label="Install Akosian">
-            <div class="install-card">
-              <div class="install-card-head">
-                <span class="install-icon"><i class="mdi mdi-cellphone-arrow-down" aria-hidden="true"></i></span>
-                <div>
-                  <h2>Install the beta</h2>
-                  <p>Connect your health data, scan food barcodes, and use on-device AI in the phone app.</p>
-                </div>
-              </div>
-
-              <div class="install-block">
-                <div class="install-block-title">
-                  <i class="mdi mdi-apple" aria-hidden="true"></i>
-                  <span>iPhone · TestFlight</span>
-                </div>
-                <a class="install-button ios" href="https://testflight.apple.com/join/HvNZzY4D" target="_blank" rel="noopener">
-                  Join the iOS beta
-                  <i class="mdi mdi-arrow-top-right" aria-hidden="true"></i>
-                </a>
-                <ol class="mini-steps">
-                  <li>Open the link on your iPhone.</li>
-                  <li>Tap <strong>Accept</strong>, then install TestFlight if asked.</li>
-                  <li>Tap <strong>Install</strong> — Akosian lands on your home screen.</li>
-                </ol>
-              </div>
-
-              <div class="install-divider"></div>
-
-              <div class="install-block">
-                <div class="install-block-title">
-                  <i class="mdi mdi-android" aria-hidden="true"></i>
-                  <span>Android · Play beta</span>
-                </div>
-                <div class="android-links">
-                  <a href="https://groups.google.com/g/akosian" target="_blank" rel="noopener">
-                    <span class="step-num">1</span>
-                    <span><strong>Join the group</strong><small>Google Groups</small></span>
-                    <i class="mdi mdi-chevron-right" aria-hidden="true"></i>
-                  </a>
-                  <a href="https://play.google.com/apps/testing/com.myrri.app" target="_blank" rel="noopener">
-                    <span class="step-num">2</span>
-                    <span><strong>Become a tester</strong><small>Play opt-in</small></span>
-                    <i class="mdi mdi-chevron-right" aria-hidden="true"></i>
-                  </a>
-                  <a href="https://play.google.com/store/apps/details?id=com.myrri.app" target="_blank" rel="noopener">
-                    <span class="step-num">3</span>
-                    <span><strong>Install Akosian</strong><small>Google Play</small></span>
-                    <i class="mdi mdi-chevron-right" aria-hidden="true"></i>
-                  </a>
-                </div>
-                <p class="install-fineprint">Use the same Google account for all three steps. Akosian itself never asks you to create an account.</p>
-              </div>
-
-              <div class="install-footer">
-                <i class="mdi mdi-shield-lock-outline" aria-hidden="true"></i>
-                <span>Free · open source · no subscription</span>
-              </div>
-            </div>
-          </aside>
-        </div>
+      <section aria-labelledby="ios">
+        <h2 id="ios">iPhone</h2>
+        <a href="https://testflight.apple.com/join/HvNZzY4D">Get the iOS beta →</a>
+        <p>Open on your iPhone. Install through TestFlight.</p>
       </section>
 
-      <section class="intro-section">
-        <p class="intro-kicker">Why I built it</p>
-        <p class="intro-copy">
-          I wanted one place to keep track of sleep, recovery, food, and habits without
-          another subscription. Akosian reads from Apple Health or Health Connect and keeps
-          your records on your phone. You don’t need an account.
-        </p>
-        <div class="intro-stats">
-          <div><strong>18</strong><span>health data types</span></div>
-          <div><strong>326,759</strong><span>foods offline</span></div>
-          <div><strong>0</strong><span>telemetry SDKs</span></div>
-          <div><strong>GPLv3</strong><span>open source</span></div>
-        </div>
+      <section aria-labelledby="android">
+        <h2 id="android">Android</h2>
+        <ol>
+          <li><a href="https://groups.google.com/g/akosian">Join the testing group</a></li>
+          <li><a href="https://play.google.com/apps/testing/com.myrri.app">Become a tester</a></li>
+          <li><a href="https://play.google.com/store/apps/details?id=com.myrri.app">Install from Google Play</a></li>
+        </ol>
+        <p>Use the same Google account for all three steps.</p>
       </section>
 
-      <section class="star-banner" aria-label="Support Akosian on GitHub">
-        <span class="star-banner-icon"><i class="mdi mdi-github" aria-hidden="true"></i></span>
-        <div class="star-banner-copy">
-          <strong>Akosian is open source.</strong>
-          <span>Read the code, report a bug, or help improve it on GitHub.</span>
-        </div>
-        <a class="star-button" href="https://github.com/Pranesh950/Myrri-Health" target="_blank" rel="noopener">
-          <i class="mdi mdi-star" aria-hidden="true"></i> Star on GitHub
-        </a>
-      </section>
-
-      <section class="content-section" id="what">
-        <div class="section-heading">
-          <span class="eyebrow">In the app</span>
-          <h2>Keep track of the basics.</h2>
-          <p>Your wearable’s readings alongside the things you log yourself.</p>
-        </div>
-        <div class="feature-grid">
-          <article class="feature-card">
-            <span class="feature-icon tint-blue"><i class="mdi mdi-weather-sunset-up" aria-hidden="true"></i></span>
-            <h3>Sleep &amp; recovery</h3>
-            <p>See last night’s sleep, your recent strain, and a morning summary calculated on your phone.</p>
-          </article>
-          <article class="feature-card">
-            <span class="feature-icon tint-green"><i class="mdi mdi-food-apple-outline" aria-hidden="true"></i></span>
-            <h3>Food logging</h3>
-            <p>Search 326,759 foods offline, scan a barcode, or describe a meal to the optional AI coach.</p>
-          </article>
-          <article class="feature-card">
-            <span class="feature-icon tint-coral"><i class="mdi mdi-notebook-outline" aria-hidden="true"></i></span>
-            <h3>A daily journal</h3>
-            <p>Log water, caffeine, mood, and habits. Look back at how they line up with your recovery.</p>
-          </article>
-          <article class="feature-card">
-            <span class="feature-icon tint-purple"><i class="mdi mdi-robot-outline" aria-hidden="true"></i></span>
-            <h3>An optional AI coach</h3>
-            <p>The AI coach can read your health and journal context, log meals, and work from your plan.</p>
-          </article>
-          <article class="feature-card">
-            <span class="feature-icon tint-amber"><i class="mdi mdi-chart-timeline-variant" aria-hidden="true"></i></span>
-            <h3>Your own baseline</h3>
-            <p>Readiness measures today's HRV and resting heart rate against your own rolling baseline.</p>
-          </article>
-          <article class="feature-card">
-            <span class="feature-icon tint-sky"><i class="mdi mdi-dna" aria-hidden="true"></i></span>
-            <h3>Wellness age estimate</h3>
-            <p>An index from the signals you have, shown with uncertainty. Not a clinical test or a diagnosis.</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="content-section" id="ai">
-        <div class="section-heading">
-          <span class="eyebrow">Optional AI</span>
-          <h2>Pick how the coach runs</h2>
-          <p>Bring a key, run a model on-device, or skip AI entirely. You can change it anytime.</p>
-        </div>
-        <div class="ai-grid">
-          <article class="ai-card">
-            <h3>Your own key</h3>
-            <p>OpenAI, Anthropic, Gemini, or OpenRouter. Your key stays in your phone's secure storage and goes straight to the provider you choose.</p>
-            <span class="ai-where"><i class="mdi mdi-key-outline" aria-hidden="true"></i> Works in this web demo with OpenRouter</span>
-          </article>
-          <article class="ai-card">
-            <h3>Local AI</h3>
-            <p>A small model runs on your phone, so prompts never leave the device. Less capable and slower, but completely private.</p>
-            <span class="ai-where muted"><i class="mdi mdi-cellphone-lock" aria-hidden="true"></i> Native app only</span>
-          </article>
-          <article class="ai-card">
-            <h3>No AI</h3>
-            <p>Skip the assistant. Sleep, readiness, food search, barcode scanning, and journaling all keep working offline.</p>
-            <span class="ai-where muted"><i class="mdi mdi-robot-off-outline" aria-hidden="true"></i> Native app only in this demo</span>
-          </article>
-        </div>
-      </section>
-
-      <section class="content-section privacy-section" id="privacy">
-        <div class="privacy-copy">
-          <span class="eyebrow">Storage &amp; privacy</span>
-          <h2>Your data stays on your phone</h2>
-          <p>
-            Akosian has no backend, no login, and no crash reporter. Scores, food search,
-            journaling, and on-device AI work with no network. Cloud AI is optional and goes
-            straight from your phone to the provider you picked.
-          </p>
-          <ul class="check-list">
-            <li><i class="mdi mdi-check-circle" aria-hidden="true"></i> No account, no email, no subscription</li>
-            <li><i class="mdi mdi-check-circle" aria-hidden="true"></i> No analytics or crash reporting</li>
-            <li><i class="mdi mdi-check-circle" aria-hidden="true"></i> API keys in OS secure storage on your phone</li>
-            <li><i class="mdi mdi-check-circle" aria-hidden="true"></i> Best-effort identifier removal before cloud requests</li>
-          </ul>
-        </div>
-        <div class="privacy-card">
-          <div class="privacy-card-head">
-            <i class="mdi mdi-fingerprint" aria-hidden="true"></i>
-            <span>In this browser demo</span>
-          </div>
-          <p>
-            Everything you see is fake sample data. The OpenRouter key you paste stays in this
-            tab's memory, is never saved to disk, and is sent only to OpenRouter. Reload the page
-            and it's gone.
-          </p>
-        </div>
-      </section>
-
-      <section class="content-section" id="limits">
-        <div class="section-heading">
-          <span class="eyebrow">Before you try it</span>
-          <h2>What the demo can't do</h2>
-          <p>This is a browser preview, not a connection to your health records.</p>
-        </div>
-        <div class="limits-list">
-          <div class="limit-row">
-            <span class="limit-icon"><i class="mdi mdi-heart-pulse" aria-hidden="true"></i></span>
-            <div><h3>No live health sync</h3><p>HealthKit and Health Connect are native modules. The demo shows fake readings from a made-up day.</p></div>
-          </div>
-          <div class="limit-row">
-            <span class="limit-icon"><i class="mdi mdi-barcode-scan" aria-hidden="true"></i></span>
-            <div><h3>No camera barcode scanning</h3><p>The scan button is here so you can see where it lives, but browsers can't open the in-app scanner. Install to scan.</p></div>
-          </div>
-          <div class="limit-row">
-            <span class="limit-icon"><i class="mdi mdi-chip" aria-hidden="true"></i></span>
-            <div><h3>No on-device model</h3><p>Apple Foundation Models, Gemini Nano, and llama.cpp need the native build. Use an API key here.</p></div>
-          </div>
-          <div class="limit-row">
-            <span class="limit-icon"><i class="mdi mdi-cloud-outline" aria-hidden="true"></i></span>
-            <div><h3>OpenRouter only for real chat</h3><p>Browser CORS lets OpenRouter work. Other providers show a notice; the phone app supports all four.</p></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="final-cta">
-        <div>
-          <span class="eyebrow">Try it with your own data</span>
-          <h2>Available in beta.</h2>
-          <p>Choose your phone below. Android testers need to follow the three steps above.</p>
-        </div>
-        <div class="final-cta-actions">
-          <a class="cta-button light" href="https://testflight.apple.com/join/HvNZzY4D" target="_blank" rel="noopener">
-            <i class="mdi mdi-apple" aria-hidden="true"></i> Join iOS beta
-          </a>
-          <a class="cta-button outline" href="https://play.google.com/store/apps/details?id=com.myrri.app" target="_blank" rel="noopener">
-            <i class="mdi mdi-android" aria-hidden="true"></i> Get it on Android
-          </a>
-          <a class="cta-button outline" href="https://github.com/Pranesh950/Myrri-Health" target="_blank" rel="noopener">
-            <i class="mdi mdi-star" aria-hidden="true"></i> Star on GitHub
-          </a>
-        </div>
+      <section aria-labelledby="github">
+        <h2 id="github">GitHub</h2>
+        <a href="https://github.com/Pranesh950/Akosian">Source code &amp; issues →</a>
       </section>
     </main>
-
-    <footer class="site-footer">
-      <div class="footer-brand">
-        <span class="brand-mark small"><i class="mdi mdi-heart-pulse" aria-hidden="true"></i></span>
-        <span>Akosian</span>
-      </div>
-      <p>Free, open-source health tracking. GPLv3. Built by one maintainer.</p>
-      <div class="footer-links">
-        <a href="https://github.com/Pranesh950/Myrri-Health" target="_blank" rel="noopener">Star on GitHub</a>
-        <a href="https://testflight.apple.com/join/HvNZzY4D" target="_blank" rel="noopener">TestFlight</a>
-        <a href="https://play.google.com/store/apps/details?id=com.myrri.app" target="_blank" rel="noopener">Google Play</a>
-      </div>
-    </footer>
-
-    <script src="app.js"></script>
   </body>
 </html>
